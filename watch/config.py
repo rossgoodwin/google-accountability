@@ -5,10 +5,13 @@ PLACES = {
     "gulf": {
         "queries": ["Gulf of America", "Gulf of Mexico"],
         "names": ["Gulf of America", "Gulf of Mexico", "Golfo de México", "Golfo de América"],
+        # Google Earth camera: lat, lon, distance in metres.
+        "earth": (25.5, -90.0, 2600000),
     },
     "lake": {
         "queries": ["Lake America", "Lake Ontario"],
         "names": ["Lake America", "Lake Ontario", "Lac Ontario"],
+        "earth": (43.65, -77.85, 450000),
     },
 }
 

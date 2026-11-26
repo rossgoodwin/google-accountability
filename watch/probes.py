@@ -155,11 +155,19 @@ def browser_probes(shots_dir):
             q = spec["queries"][0]
             key = f"{place}|{q}"
             try:
-                page.goto("https://earth.google.com/web/search/"
-                          f"{urllib.parse.quote_plus(q)}", wait_until="domcontentloaded",
-                          timeout=60000)
+                # Earth's search ignores the query from a cold start, so fly
+                # the camera to the place directly.
+                lat, lon, dist = spec["earth"]
+                page.goto(f"https://earth.google.com/web/@{lat},{lon},0a,{dist}d,35y,0h,0t,0r",
+                          wait_until="domcontentloaded", timeout=60000)
                 _dismiss_consent(page)
-                page.wait_for_timeout(30000)
+                page.wait_for_timeout(15000)
+                # Close the "New from Google Earth" promo, which is drawn on
+                # canvas and has no DOM button.
+                for _ in range(3):
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(1500)
+                page.wait_for_timeout(15000)
                 # Earth's web app is Flutter, drawn on canvas, so its text is
                 # not in the page. Read the screenshot instead.
                 data = page.evaluate(EARTH_JS)
