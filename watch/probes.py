@@ -176,6 +176,7 @@ def browser_probes(shots_dir):
                     _debug(f"earth_dom_{place}_{n}", f"url={page.url}\n{data['text']}")
                     shot = os.path.join(shots_dir, f"earth_{place}_{n}.png")
                     page.screenshot(path=shot)
+                    _debug_image(shot)
                     found = _ocr_names(shot)
                     if found not in ("none", "ocr unavailable"):
                         seen.update(found.split(", "))
@@ -231,6 +232,18 @@ def _debug(name, text):
         os.makedirs("snapshots/_debug", exist_ok=True)
         with open(f"snapshots/_debug/{name}.txt", "w", encoding="utf-8") as f:
             f.write(text or "")
+
+
+def _debug_image(path):
+    if os.environ.get("LABEL_WATCH_DEBUG"):
+        try:
+            from PIL import Image
+            os.makedirs("snapshots/_debug", exist_ok=True)
+            img = Image.open(path).convert("RGB")
+            img.thumbnail((1000, 1000))
+            img.save(f"snapshots/_debug/{os.path.basename(path)[:-4]}.jpg", quality=80)
+        except Exception:
+            pass
 
 
 def _ocr_names(path):
