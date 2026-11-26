@@ -25,6 +25,8 @@ def normalize(text):
     """Strip churn so only meaningful wording is compared."""
     noise = [re.compile(p, re.I) for p in config.NOISE_PATTERNS]
     out = []
+    text = re.sub(r"[\ue000-\uf8ff]", "", text)             # icon-font glyphs
+    text = re.sub(r"\b\d\.\d\s*\(\d[\d,.]*[KkMm]?\)", "", text)  # 4.6(1,606) ratings
     for line in text.splitlines():
         line = re.sub(r"\s+", " ", line).strip()
         if not line or any(n.search(line) for n in noise):
@@ -71,20 +73,23 @@ MAPS_JS = r"""
 EARTH_JS = r"""
 () => {
   const parts = [];
+  const seen = new Set();
+  let canvases = 0;
   const walk = (root, depth) => {
-    if (depth > 25) return;
+    if (depth > 30) return;
     for (const el of root.querySelectorAll('*')) {
+      if (el.tagName === 'CANVAS') canvases++;
       if (el.shadowRoot) walk(el.shadowRoot, depth + 1);
-    }
-    if (root.querySelectorAll) {
-      for (const el of root.querySelectorAll('h1,h2,[class*="title"],[class*="name"],[class*="description"],[class*="knowledge"]')) {
-        const s = (el.innerText || el.textContent || '').trim();
-        if (s && s.length < 600) parts.push(s);
+      if (['SCRIPT', 'STYLE', 'TEMPLATE'].includes(el.tagName)) continue;
+      for (const n of el.childNodes) {
+        if (n.nodeType !== 3) continue;
+        const t = n.textContent.replace(/\s+/g, ' ').trim();
+        if (t && t.length < 400 && !seen.has(t)) { seen.add(t); parts.push(t); }
       }
     }
   };
   walk(document, 0);
-  return {title: document.title, text: parts.join('\n').slice(0, 4000)};
+  return {title: document.title, canvases, text: parts.join('\n').slice(0, 6000)};
 }
 """
 
@@ -128,6 +133,10 @@ def browser_probes(shots_dir):
                         page.goto(url, wait_until="domcontentloaded", timeout=45000)
                         _dismiss_consent(page)
                         page.wait_for_timeout(7000)
+                        first = page.locator('[role="feed"] a[href*="/maps/place/"]')
+                        if not page.locator("h1").count() and first.count():
+                            first.first.click(timeout=10000)
+                            page.wait_for_timeout(6000)
                         data = page.evaluate(MAPS_JS)
                         maps[key + "|name"] = (data["h1"] or data["title"]).strip()
                         maps[key + "|panel"] = normalize(data["panel"])
@@ -143,10 +152,11 @@ def browser_probes(shots_dir):
                           f"{urllib.parse.quote_plus(q)}", wait_until="domcontentloaded",
                           timeout=60000)
                 _dismiss_consent(page)
-                page.wait_for_timeout(20000)
+                page.wait_for_timeout(30000)
                 data = page.evaluate(EARTH_JS)
                 earth[key + "|title"] = data["title"].strip()
                 earth[key + "|text"] = normalize(data["text"])
+                earth[key + "|rendered"] = "canvas" if data["canvases"] else "no canvas"
                 page.screenshot(path=os.path.join(shots_dir, f"earth_{place}.png"))
             except Exception as e:
                 errors[f"earth|{key}"] = repr(e)[:300]

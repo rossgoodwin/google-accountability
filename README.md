@@ -21,7 +21,7 @@ Every snapshot gets committed to `snapshots/`, so the git history works as a dat
 
 ## Setup
 
-1. Create a private repo, push this folder to it, and enable Actions.
+1. Push this folder to a GitHub repo with Actions enabled. In a public repo, Actions minutes are free and the snapshot history is a public record.
 2. Optional, `GOOGLE_MAPS_API_KEY` secret: a Google Cloud key with Places API (New) enabled. This is the only source that sees the Canadian, Mexican and rest-of-world views. The web probes run from US runners. It makes 16 calls a run, about 1,900 a month. Requesting `editorialSummary` puts those calls in a higher pricing tier, so check Google's current free monthly cap for that tier, set a budget alert, or drop the cron to daily.
 3. Optional, `NTFY_TOPIC` secret: a hard-to-guess topic name. Install the ntfy app and subscribe to that topic for a phone push on each alert. Without it, GitHub's own issue email and mobile notifications do the job.
 4. Run it once by hand (Actions → label-watch → Run workflow) to set the baseline.
