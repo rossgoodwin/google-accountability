@@ -164,6 +164,7 @@ def browser_probes(shots_dir):
                 # not in the page. Read the screenshot instead.
                 data = page.evaluate(EARTH_JS)
                 earth[key + "|rendered"] = "canvas" if data["canvases"] else "no canvas"
+                _debug(f"earth_dom_{place}", f"url={page.url}\n{data['text']}")
                 shot = os.path.join(shots_dir, f"earth_{place}.png")
                 page.screenshot(path=shot)
                 earth[key + "|on_screen"] = _ocr_names(shot)
@@ -175,14 +176,30 @@ def browser_probes(shots_dir):
             errors)
 
 
+def _ocr_text(path):
+    try:
+        return subprocess.run(["tesseract", path, "stdout", "--psm", "11"],
+                              capture_output=True, text=True, timeout=120).stdout
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
+def _debug(name, text):
+    """With LABEL_WATCH_DEBUG set, dump raw text to snapshots/_debug/ (never
+    compared) so a human can see what a probe actually saw."""
+    if os.environ.get("LABEL_WATCH_DEBUG"):
+        os.makedirs("snapshots/_debug", exist_ok=True)
+        with open(f"snapshots/_debug/{name}.txt", "w", encoding="utf-8") as f:
+            f.write(text or "")
+
+
 def _ocr_names(path):
     """Read a screenshot with tesseract and report which watched names and
     provenance words appear on screen. Only presence is compared, since raw
     OCR text wobbles from run to run."""
-    try:
-        txt = subprocess.run(["tesseract", path, "stdout", "--psm", "11"],
-                             capture_output=True, text=True, timeout=120).stdout
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    txt = _ocr_text(path)
+    _debug("ocr_" + os.path.basename(path), txt)
+    if txt is None:
         return "ocr unavailable"
     flat = re.sub(r"\s+", " ", txt).lower()
     names = {n for spec in config.PLACES.values() for n in spec["names"]}
