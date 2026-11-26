@@ -1,0 +1,75 @@
+name: label-watch
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every six hours, off the hour
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: label-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run probes
+        id: run
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: python -m watch.run
+
+      - name: Keep screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens-${{ github.run_id }}
+          path: out/screens/
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Commit snapshots
+        run: |
+          git config user.name "label-watch"
+          git config user.email "label-watch@users.noreply.github.com"
+          git add snapshots
+          if ! git diff --cached --quiet; then
+            git commit -m "snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
+
+      - name: Open an issue
+        if: steps.run.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "" >> out/report.md
+          echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> out/report.md
+          gh label create label-watch --color B60205 --force >/dev/null
+          gh issue create --title "$(cat out/title.txt)" --body-file out/report.md --label label-watch
+
+      - name: Push to phone (optional)
+        if: steps.run.outputs.changed == 'true' && env.NTFY_TOPIC != ''
+        run: |
+          curl -s --data-binary @out/title.txt \
+               -H "Click: ${{ github.server_url }}/${{ github.repository }}/issues" \
+               "https://ntfy.sh/$NTFY_TOPIC" >/dev/null
