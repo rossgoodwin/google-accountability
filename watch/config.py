@@ -11,7 +11,7 @@ PLACES = {
     "lake": {
         "queries": ["Lake America", "Lake Ontario"],
         "names": ["Lake America", "Lake Ontario", "Lac Ontario"],
-        "earth": (43.65, -77.85, [450000, 220000]),
+        "earth": (43.65, -77.85, [1400000, 800000, 450000]),
     },
 }
 
