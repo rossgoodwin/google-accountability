@@ -156,26 +156,31 @@ def browser_probes(shots_dir):
             key = f"{place}|{q}"
             try:
                 # Earth's search ignores the query from a cold start, so fly
-                # the camera to the place directly.
-                lat, lon, dist = spec["earth"]
-                page.goto(f"https://earth.google.com/web/@{lat},{lon},0a,{dist}d,35y,0h,0t,0r",
-                          wait_until="domcontentloaded", timeout=60000)
-                _dismiss_consent(page)
-                page.wait_for_timeout(15000)
-                # Close the "New from Google Earth" promo, which is drawn on
-                # canvas and has no DOM button.
-                for _ in range(3):
-                    page.keyboard.press("Escape")
-                    page.wait_for_timeout(1500)
-                page.wait_for_timeout(15000)
-                # Earth's web app is Flutter, drawn on canvas, so its text is
-                # not in the page. Read the screenshot instead.
-                data = page.evaluate(EARTH_JS)
-                earth[key + "|rendered"] = "canvas" if data["canvases"] else "no canvas"
-                _debug(f"earth_dom_{place}", f"url={page.url}\n{data['text']}")
-                shot = os.path.join(shots_dir, f"earth_{place}.png")
-                page.screenshot(path=shot)
-                earth[key + "|on_screen"] = _ocr_names(shot)
+                # the camera to the place directly, from more than one height.
+                lat, lon, dists = spec["earth"]
+                seen, rendered = set(), False
+                for n, dist in enumerate(dists):
+                    page.goto("https://earth.google.com/web/"
+                              f"@{lat},{lon},0a,{dist}d,35y,0h,0t,0r",
+                              wait_until="domcontentloaded", timeout=60000)
+                    _dismiss_consent(page)
+                    page.wait_for_timeout(15000)
+                    # Close the "New from Google Earth" promo, which is drawn
+                    # on canvas and has no DOM button.
+                    for _ in range(3):
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(1500)
+                    page.wait_for_timeout(15000)
+                    data = page.evaluate(EARTH_JS)
+                    rendered = rendered or bool(data["canvases"])
+                    _debug(f"earth_dom_{place}_{n}", f"url={page.url}\n{data['text']}")
+                    shot = os.path.join(shots_dir, f"earth_{place}_{n}.png")
+                    page.screenshot(path=shot)
+                    found = _ocr_names(shot)
+                    if found not in ("none", "ocr unavailable"):
+                        seen.update(found.split(", "))
+                earth[key + "|rendered"] = "canvas" if rendered else "no canvas"
+                earth[key + "|on_screen"] = ", ".join(sorted(seen)) or "none"
             except Exception as e:
                 errors[f"earth|{key}"] = repr(e)[:300]
         browser.close()
@@ -184,12 +189,39 @@ def browser_probes(shots_dir):
             errors)
 
 
+def _tesseract(path):
+    return subprocess.run(["tesseract", path, "stdout", "--psm", "11"],
+                          capture_output=True, text=True, timeout=120).stdout
+
+
 def _ocr_text(path):
+    """OCR the screenshot as-is, then again enhanced for map labels: Earth
+    draws water names as pale italic text on dark blue, which plain OCR
+    misses. The enhanced passes upscale the middle of the frame and pull the
+    light text out as black on white."""
     try:
-        return subprocess.run(["tesseract", path, "stdout", "--psm", "11"],
-                              capture_output=True, text=True, timeout=120).stdout
+        texts = [_tesseract(path)]
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
+    try:
+        from PIL import Image, ImageOps
+        img = Image.open(path).convert("RGB")
+        w, h = img.size
+        crops = [img, img.crop((w // 6, h // 6, w * 5 // 6, h * 5 // 6))]
+        for i, crop in enumerate(crops):
+            big = crop.resize((crop.width * 2, crop.height * 2), Image.LANCZOS)
+            gray = ImageOps.grayscale(big)
+            light = gray.point(lambda v: 0 if v > 150 else 255)    # light text -> black
+            for j, variant in enumerate([ImageOps.autocontrast(gray), light]):
+                tmp = f"{path}.ocr{i}{j}.png"
+                variant.save(tmp)
+                try:
+                    texts.append(_tesseract(tmp))
+                finally:
+                    os.remove(tmp)
+    except Exception:
+        pass
+    return "\n".join(texts)
 
 
 def _debug(name, text):
