@@ -12,6 +12,8 @@ import re
 import urllib.parse
 import xml.etree.ElementTree as ET
 
+import subprocess
+
 import requests
 
 from . import config
@@ -134,14 +136,19 @@ def browser_probes(shots_dir):
                         _dismiss_consent(page)
                         page.wait_for_timeout(7000)
                         first = page.locator('[role="feed"] a[href*="/maps/place/"]')
-                        if not page.locator("h1").count() and first.count():
+                        if first.count():
                             first.first.click(timeout=10000)
                             page.wait_for_timeout(6000)
                         data = page.evaluate(MAPS_JS)
                         maps[key + "|name"] = (data["h1"] or data["title"]).strip()
-                        maps[key + "|panel"] = normalize(data["panel"])
-                        page.screenshot(path=os.path.join(
-                            shots_dir, f"maps_{place}_{_slug(q)}_{gl}.png"))
+                        # Google sometimes serves bots a cut-down panel. Skip
+                        # it rather than report it; the last full panel stands.
+                        if "limited view of google maps" not in data["panel"].lower():
+                            maps[key + "|panel"] = normalize(data["panel"])
+                        shot = os.path.join(shots_dir,
+                                            f"maps_{place}_{_slug(q)}_{gl}.png")
+                        page.screenshot(path=shot)
+                        maps[key + "|on_screen"] = _ocr_names(shot)
                     except Exception as e:
                         errors[f"maps|{key}"] = repr(e)[:300]
 
@@ -153,17 +160,35 @@ def browser_probes(shots_dir):
                           timeout=60000)
                 _dismiss_consent(page)
                 page.wait_for_timeout(30000)
+                # Earth's web app is Flutter, drawn on canvas, so its text is
+                # not in the page. Read the screenshot instead.
                 data = page.evaluate(EARTH_JS)
-                earth[key + "|title"] = data["title"].strip()
-                earth[key + "|text"] = normalize(data["text"])
                 earth[key + "|rendered"] = "canvas" if data["canvases"] else "no canvas"
-                page.screenshot(path=os.path.join(shots_dir, f"earth_{place}.png"))
+                shot = os.path.join(shots_dir, f"earth_{place}.png")
+                page.screenshot(path=shot)
+                earth[key + "|on_screen"] = _ocr_names(shot)
             except Exception as e:
                 errors[f"earth|{key}"] = repr(e)[:300]
         browser.close()
     return ({"kind": "text", "records": maps},
             {"kind": "text", "records": earth},
             errors)
+
+
+def _ocr_names(path):
+    """Read a screenshot with tesseract and report which watched names and
+    provenance words appear on screen. Only presence is compared, since raw
+    OCR text wobbles from run to run."""
+    try:
+        txt = subprocess.run(["tesseract", path, "stdout", "--psm", "11"],
+                             capture_output=True, text=True, timeout=120).stdout
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return "ocr unavailable"
+    flat = re.sub(r"\s+", " ", txt).lower()
+    names = {n for spec in config.PLACES.values() for n in spec["names"]}
+    found = sorted(n for n in names if n.lower() in flat)
+    found += sorted(f"word:{w}" for w in config.PROVENANCE_WORDS if w.lower() in flat)
+    return ", ".join(found) or "none"
 
 
 def _slug(s):

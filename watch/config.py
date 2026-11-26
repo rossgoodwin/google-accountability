@@ -61,6 +61,8 @@ NOISE_PATTERNS = [
     r"^(Suggest an edit|Add a missing place|Add your business|Add a label)$",
     r"^\d+ (min|hr|h)\b",
     r"^Sponsored",
+    r"^Update results when map moves$",
+    r"^See more$",
 ]
 
 # How many failing runs in a row before a source counts as "blind" and alerts.
