@@ -50,6 +50,22 @@ def html_to_text(raw):
     return html.unescape(raw)
 
 
+PANEL_BODY_STARTS = {"details", "quick facts", "overview", "about", "reviews", "about this data"}
+
+
+def note_words(panel_text):
+    """Origin-note wording in the head of a place panel, e.g. "renamed",
+    "formerly". Returns a sorted list as text, or "none"."""
+    head = []
+    for line in panel_text.splitlines():
+        if line.strip().lower() in PANEL_BODY_STARTS:
+            break
+        head.append(line)
+    flat = " ".join(head).lower()
+    found = sorted(w for w in config.PROVENANCE_WORDS if w.lower() in flat)
+    return ", ".join(found) or "none"
+
+
 def get(url, **kw):
     r = requests.get(url, headers={"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"},
                      timeout=TIMEOUT, **kw)
@@ -145,6 +161,9 @@ def browser_probes(shots_dir):
                         # it rather than report it; the last full panel stands.
                         if "limited view of google maps" not in data["panel"].lower():
                             maps[key + "|panel"] = normalize(data["panel"])
+                        # Any origin note sits beside the name, above the
+                        # panel's encyclopedia text, so only that header is read.
+                        maps[key + "|note"] = note_words(data["h1"] + "\n" + data["panel"])
                         shot = os.path.join(shots_dir,
                                             f"maps_{place}_{_slug(q)}_{gl}.png")
                         page.screenshot(path=shot)

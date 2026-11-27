@@ -36,6 +36,15 @@ Three independent layers start checks, so one failing doesn't stop them:
 
 To stop all of it, disable the workflow under Actions.
 
+## The meters
+
+The top of the status page shows two numbers, both computed in `watch/meters.py` from what Google serves:
+
+- **Names restored for US users:** four views (Google Maps and Google Earth, gulf and lake, seen from the US), 25 points each. The original name alone scores full points, both names half, the new name alone zero.
+- **Origin explained:** the two renamed places, 50 points each, for a note beside the US name saying where it came from. The bot looks for wording like "renamed" or "formerly" in the head of the Maps place panel, or on the map or globe by OCR. It ignores the panel's encyclopedia text, which mentions old names for its own reasons.
+
+When a view improves, a dated thank-you line goes on the page and stays there (`snapshots/_meters.json`). Alerts are titled "Change detected", and when a change moves a meter, the alert leads with the new numbers.
+
 ## Status page
 
 Every run rebuilds a public page from the snapshots and deploys it to GitHub Pages: rossgoodwin.com/google-accountability. It shows what Google Maps calls each place in each country, what Google Earth labels it, this run's screenshots, the days since Google was asked to add a provenance note (from `NOTICE_DATE` in `watch/config.py`), and every change the bot has reported. It requires **Settings → Pages → Source: GitHub Actions** to be set once. The page builder lives in `watch/site.py`.

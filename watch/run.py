@@ -14,7 +14,7 @@ import json
 import os
 import sys
 
-from . import config, probes
+from . import config, meters, probes
 
 SNAP = "snapshots"
 OUT = "out"
@@ -143,6 +143,31 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
             sections.append((source, changes))
     save(os.path.join(SNAP, "_pending.json"), pending)
 
+    # Meters for the top of the status page, and a dated thank-you line for
+    # every view that improved.
+    mstate = load(os.path.join(SNAP, "_meters.json"), None)
+    new_views = meters.views(load(os.path.join(SNAP, "maps.json"), {}),
+                             load(os.path.join(SNAP, "earth.json"), {}))
+    restored, explained = meters.totals(new_views)
+    meter_note = ""
+    if mstate is None:
+        mstate = {"history": [], "thanks": []}
+    else:
+        old_views = {k: tuple(v) for k, v in mstate.get("views", {}).items()}
+        new_thanks = meters.thanks_lines(old_views, new_views, now[:10])
+        mstate["thanks"] = mstate.get("thanks", []) + new_thanks
+        before = (mstate.get("restored", 0), mstate.get("explained", 0))
+        if (restored, explained) != before:
+            meter_note = (f"Names restored for US users: {before[0]}% → {restored}%. "
+                          f"Origin explained: {before[1]}% → {explained}%.")
+            mstate["history"].append({"time": now, "restored": restored,
+                                      "explained": explained})
+        if new_thanks:
+            meter_note += "\n\n" + "\n".join(new_thanks)
+    mstate.update({"views": {k: list(v) for k, v in new_views.items()},
+                   "restored": restored, "explained": explained})
+    save(os.path.join(SNAP, "_meters.json"), mstate)
+
     # Event log for the status page: every reported change, newest last.
     if sections:
         events = load(os.path.join(SNAP, "_events.json"), [])
@@ -171,7 +196,7 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
     # Report.
     os.makedirs(OUT, exist_ok=True)
     report_path = os.path.join(OUT, "report.md")
-    changed = bool(sections or blind)
+    changed = bool(sections or blind or meter_note)
     if changed:
         order = ["maps", "places", "earth", "pages", "fedreg", "feeds"]
         sections.sort(key=lambda s: order.index(s[0]) if s[0] in order else 99)
@@ -184,6 +209,8 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
                         "Screenshots from this run are attached to the workflow run.")
             head.append("")
         parts = head
+        if meter_note:
+            parts.append("### Meters\n\n" + meter_note.strip())
         for source, cs in sections:
             parts.append(f"### {source} ({len(cs)})")
             parts.extend(render_change(source, k, o, v) for k, o, v in cs[:40])
@@ -196,7 +223,9 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         with open(report_path, "w", encoding="utf-8") as f:
             f.write("\n\n".join(parts) + "\n")
         title_bits = [s for s, _ in sections] + (["blind"] if blind else [])
-        title = f"Label watch: {n} change(s) [{', '.join(title_bits)}]"
+        title = f"Change detected: {n} [{', '.join(title_bits)}]"
+        if meter_note:
+            title = f"Names restored {restored}%, origin explained {explained}%: {title}"
         with open(os.path.join(OUT, "title.txt"), "w") as f:
             f.write(title)
     elif os.path.exists(report_path):

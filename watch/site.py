@@ -83,6 +83,11 @@ def build(now=None):
         shutil.rmtree(OUT)
     os.makedirs(os.path.join(OUT, "img"))
 
+    mstate = load("_meters.json", {})
+    restored, explained = mstate.get("restored", 0), mstate.get("explained", 0)
+    thanks = mstate.get("thanks", [])
+    thanks_html = ("<ul class=thanks>" + "".join(f"<li>{e(t)}</li>" for t in reversed(thanks)) + "</ul>"
+                   if thanks else "")
     maps = load("maps.json", {})
     earth = load("earth.json", {})
     health = load("_health.json", {})
@@ -150,9 +155,10 @@ def build(now=None):
     health_line = ("All sources answered on the last check." if not failing else
                    f"{len(failing)} source(s) failing: {', '.join(e(k) for k in failing)}.")
 
-    if notes:
-        note_line = (f"Possible note first detected {e(notes[0]['time'][:10])}. "
-                     f'See <a href="{config.REPO_URL}/issues?q=label%3Alabel-watch">the issues</a>.')
+    if explained >= 100:
+        note_line = "Both renamed labels now say where the name came from."
+    elif explained > 0:
+        note_line = "One of the two renamed labels now says where the name came from."
     else:
         note_line = "None detected in any view this page checks."
 
@@ -178,7 +184,17 @@ h2 {{ font-size:1.45rem; margin:0; }}
 h3 {{ font-size:1.1rem; margin:0 0 10px; }}
 p {{ margin:0 0 14px; }}
 a {{ color:var(--accent); }}
-.lede {{ font-size:1.1rem; max-width:64ch; }}
+.lede {{ font-size:1.1rem; max-width:64ch; margin-top:36px; }}
+.meters {{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:26px 0 12px; }}
+.meter {{ background:var(--card); border:1px solid var(--line); padding:22px 22px 18px; }}
+.meter b {{ display:block; font:600 4.6rem/1 ui-sans-serif, system-ui, sans-serif; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }}
+.meter .label {{ display:block; font:600 1rem/1.3 ui-sans-serif, system-ui, sans-serif; margin:10px 0 12px; }}
+.bar {{ height:8px; background:var(--line); margin:0 0 14px; }}
+.bar i {{ display:block; height:100%; background:var(--accent); }}
+.meter p {{ font-size:.95rem; color:var(--dim); margin:0; }}
+.meternote {{ font-size:.95rem; color:var(--dim); }}
+.thanks {{ list-style:none; padding:0; margin:8px 0 0; }}
+.thanks li {{ padding:10px 0; border-bottom:1px solid var(--line); }}
 .dim, .sub {{ color:var(--dim); }}
 .sub {{ margin:2px 0 14px; font-size:.95rem; }}
 .count {{ display:flex; gap:22px; align-items:baseline; flex-wrap:wrap;
@@ -201,12 +217,31 @@ figcaption {{ font:13px ui-sans-serif, system-ui, sans-serif; color:var(--dim); 
 .src {{ font-weight:600; margin-right:6px; }}
 .flag {{ color:var(--accent); }}
 footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; font-size:.92rem; color:var(--dim); }}
-@media (max-width:560px) {{ tbody th {{ width:auto; }} .count b {{ font-size:2.6rem; }} }}
+@media (max-width:640px) {{ .meters {{ grid-template-columns:1fr; }} }}
+@media (max-width:560px) {{ tbody th {{ width:auto; }} .count b {{ font-size:2.6rem; }} .meter b {{ font-size:3.8rem; }} }}
 </style>
 </head>
 <body>
 <main>
 <h1>Google Accountability</h1>
+
+<div class=meters>
+  <div class=meter>
+    <b>{restored}%</b>
+    <span class=label>Names restored for US users</span>
+    <div class=bar><i style="width:{restored}%"></i></div>
+    <p>How much of what Google Maps and Google Earth show people in the United States uses the original names, Gulf of Mexico and Lake Ontario. A label showing both names counts as halfway.</p>
+  </div>
+  <div class=meter>
+    <b>{explained}%</b>
+    <span class=label>Origin explained</span>
+    <div class=bar><i style="width:{explained}%"></i></div>
+    <p>How many of the two renamed labels tell US users where the new name came from, with a note beside the name in Maps or on the map itself.</p>
+  </div>
+</div>
+<p class=meternote>Both numbers come from what Google itself shows, checked about every 15 minutes. When either one rises, a dated thank-you appears here.</p>
+{thanks_html}
+
 <p class=lede>Google renamed two bodies of water for its users in the United States after US executive orders. Its maps there show only the new names. This page records what Google Maps and Google Earth show in each country, checked about every 15 minutes.</p>
 
 <div class=count>

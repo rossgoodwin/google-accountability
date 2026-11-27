@@ -85,3 +85,23 @@ def test_ocr_needs_two_runs(fake):
     assert run.run() is True                       # confirmed
     assert "Lake Ontario (Lake America)" in open("out/report.md").read()
     assert run.run() is False
+
+
+def test_meters_and_thanks(fake, monkeypatch):
+    from watch import meters
+    state = {"name": "Lake America"}
+    real_views = meters.views
+    monkeypatch.setattr(meters, "views", lambda m, e: {
+        "restored|maps|lake": (meters._score_names(state["name"], "lake"), state["name"]),
+        "restored|earth|lake": (0.0, ""), "restored|maps|gulf": (0.0, ""),
+        "restored|earth|gulf": (0.0, ""), "explained|lake": (0.0, ""), "explained|gulf": (0.0, "")})
+    run.run()
+    assert json.load(open("snapshots/_meters.json"))["restored"] == 0
+    assert run.run() is False
+    state["name"] = "Lake America (Lake Ontario)"
+    assert run.run() is True
+    m = json.load(open("snapshots/_meters.json"))
+    assert m["restored"] == 13 and len(m["thanks"]) == 1 and "Thank you." in m["thanks"][0]
+    assert open("out/title.txt").read().startswith("Names restored 13%")
+    assert "0% \u2192 12%" in open("out/report.md").read()
+    assert run.run() is False
