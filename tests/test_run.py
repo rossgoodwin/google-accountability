@@ -103,5 +103,5 @@ def test_meters_and_thanks(fake, monkeypatch):
     m = json.load(open("snapshots/_meters.json"))
     assert m["restored"] == 13 and len(m["thanks"]) == 1 and "Thank you." in m["thanks"][0]
     assert open("out/title.txt").read().startswith("Names restored 13%")
-    assert "0% \u2192 12%" in open("out/report.md").read()
+    assert "0% \u2192 13%" in open("out/report.md").read()
     assert run.run() is False
