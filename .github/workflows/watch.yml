@@ -2,7 +2,7 @@ name: label-watch
 
 on:
   schedule:
-    - cron: "17 */6 * * *"   # every six hours, off the hour
+    - cron: "41 */6 * * *"   # every six hours, off the hour
   workflow_dispatch:
     inputs:
       debug:
