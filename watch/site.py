@@ -45,10 +45,13 @@ def load(name, default):
         return default
 
 
+IMAGES_ON = True
+
+
 def picture(fname, crop):
     """Copy a screenshot into the site as a JPEG. Returns its path or None."""
     src = os.path.join(SHOTS, fname)
-    if not os.path.exists(src):
+    if not IMAGES_ON or not os.path.exists(src):
         return None
     try:
         from PIL import Image
@@ -270,5 +273,22 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
     return os.path.join(OUT, "index.html")
 
 
+def build_fallback():
+    """A copy of the page without screenshots at the repo root, for when Pages
+    publishes straight from the branch instead of from the workflow. Images
+    stay out so the repo doesn't grow by megabytes a day."""
+    global IMAGES_ON
+    IMAGES_ON = False
+    try:
+        path = build()
+    finally:
+        IMAGES_ON = True
+    shutil.copy(path, "index.html")
+    return "index.html"
+
+
 if __name__ == "__main__":
+    import sys
+    if "--fallback" in sys.argv:
+        print(build_fallback())
     print(build())
