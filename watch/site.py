@@ -161,8 +161,9 @@ def build(now=None):
 <head>
 <meta charset=utf-8>
 <meta name=viewport content="width=device-width, initial-scale=1">
+<meta http-equiv=refresh content=300>
 <title>Google Accountability</title>
-<meta name=description content="What Google Maps and Google Earth call the Gulf of Mexico and Lake Ontario in each country, checked every six hours.">
+<meta name=description content="What Google Maps and Google Earth call the Gulf of Mexico and Lake Ontario in each country, checked about every 15 minutes.">
 <style>
 :root {{ --bg:#fbfaf7; --fg:#1b1b1a; --dim:#6b6a66; --line:#dedbd3; --accent:#a3271b; --card:#fff; }}
 @media (prefers-color-scheme: dark) {{
@@ -206,7 +207,7 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
 <body>
 <main>
 <h1>Google Accountability</h1>
-<p class=lede>Google renamed two bodies of water for its users in the United States after US executive orders. Its maps there show only the new names. This page records what Google Maps and Google Earth show in each country, checked every six hours.</p>
+<p class=lede>Google renamed two bodies of water for its users in the United States after US executive orders. Its maps there show only the new names. This page records what Google Maps and Google Earth show in each country, checked about every 15 minutes.</p>
 
 <div class=count>
   <b>{days}</b>

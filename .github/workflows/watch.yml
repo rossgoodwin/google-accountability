@@ -2,7 +2,8 @@ name: label-watch
 
 on:
   schedule:
-    - cron: "41 */6 * * *"   # every six hours, off the hour
+    # Layer 1: GitHub's scheduler, every 15 minutes off the busy marks.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
     inputs:
       debug:
@@ -11,6 +12,7 @@ on:
         default: false
 
 permissions:
+  actions: write
   contents: write
   issues: write
   pages: write
@@ -105,3 +107,25 @@ jobs:
         id: deploy
         continue-on-error: true
         uses: actions/deploy-pages@v4
+
+  # Layer 2: each run starts the next one 15 minutes after it began, so the
+  # checks keep going even when GitHub's scheduler skips slots. Runs share one
+  # concurrency group, so extra starts collapse into a single queue.
+  # To stop everything: Actions > label-watch > ... > Disable workflow.
+  next:
+    needs: watch
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Wait, then start the next check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          started=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq .run_started_at)
+          elapsed=$(( $(date +%s) - $(date -d "$started" +%s) ))
+          wait=$(( 900 - elapsed ))
+          if [ "$wait" -gt 0 ]; then sleep "$wait"; fi
+          gh api -X POST "repos/$REPO/actions/workflows/watch.yml/dispatches" -f ref=main

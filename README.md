@@ -1,6 +1,6 @@
 # Google-Accountability (label-watch)
 
-Watches how Google labels the Gulf of Mexico / "Gulf of America" and Lake Ontario / "Lake America", and opens a GitHub issue when anything changes. Runs on GitHub Actions every six hours. No server.
+Watches how Google labels the Gulf of Mexico / "Gulf of America" and Lake Ontario / "Lake America", and opens a GitHub issue when anything changes. Runs on GitHub Actions about every 15 minutes. No server.
 
 ## What it checks
 
@@ -22,9 +22,19 @@ Every snapshot gets committed to `snapshots/`, so the git history works as a dat
 ## Setup
 
 1. Push this folder to a GitHub repo with Actions enabled. In a public repo, Actions minutes are free and the snapshot history is a public record.
-2. Optional, `GOOGLE_MAPS_API_KEY` secret: a Google Cloud key with Places API (New) enabled. This is the only source that sees the Canadian, Mexican and rest-of-world views. The web probes run from US runners. It makes 16 calls a run, about 1,900 a month. Requesting `editorialSummary` puts those calls in a higher pricing tier, so check Google's current free monthly cap for that tier, set a budget alert, or drop the cron to daily.
+2. Optional, `GOOGLE_MAPS_API_KEY` secret: a Google Cloud key with Places API (New) enabled. This is the only source that sees the Canadian, Mexican and rest-of-world views. The web probes run from US runners. It makes 16 calls a run. At a run every 15 minutes, that comes to about 46,000 a month, well past any free allowance, and requesting `editorialSummary` puts those calls in a higher pricing tier. If you add a key, set a budget alert first, or call the API only on some runs.
 3. Optional, `NTFY_TOPIC` secret: a hard-to-guess topic name. Install the ntfy app and subscribe to that topic for a phone push on each alert. Without it, GitHub's own issue email and mobile notifications do the job.
 4. Run it once by hand (Actions → label-watch → Run workflow) to set the baseline.
+
+## Keeping it running
+
+Three independent layers start checks, so one failing doesn't stop them:
+
+1. GitHub's scheduler, at :07, :22, :37 and :52 past each hour. GitHub skips scheduled slots under load, and sometimes for days on new repos.
+2. A chain: each run starts the next one 15 minutes after it began (the `next` job). Concurrency collapses extra starts into one queue, so runs never pile up.
+3. An hourly outside watchdog, a Claude scheduled task, that starts a run if none has started in the last 40 minutes and raises a flag if the last few runs failed.
+
+To stop all of it, disable the workflow under Actions.
 
 ## Status page
 
