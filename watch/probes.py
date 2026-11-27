@@ -148,7 +148,7 @@ def browser_probes(shots_dir):
                         shot = os.path.join(shots_dir,
                                             f"maps_{place}_{_slug(q)}_{gl}.png")
                         page.screenshot(path=shot)
-                        maps[key + "|on_screen"] = _ocr_names(shot)
+                        maps[key + "|on_screen"] = _ocr_names(shot, place)
                     except Exception as e:
                         errors[f"maps|{key}"] = repr(e)[:300]
 
@@ -170,14 +170,16 @@ def browser_probes(shots_dir):
                     for _ in range(3):
                         page.keyboard.press("Escape")
                         page.wait_for_timeout(1500)
-                    page.wait_for_timeout(15000)
+                    page.wait_for_timeout(12000)
+                    _click_text_buttons(page)
+                    page.wait_for_timeout(3000)
                     data = page.evaluate(EARTH_JS)
                     rendered = rendered or bool(data["canvases"])
                     _debug(f"earth_dom_{place}_{n}", f"url={page.url}\n{data['text']}")
                     shot = os.path.join(shots_dir, f"earth_{place}_{n}.png")
                     page.screenshot(path=shot)
                     _debug_image(shot)
-                    found = _ocr_names(shot)
+                    found = _ocr_names(shot, place)
                     if found not in ("none", "ocr unavailable"):
                         seen.update(found.split(", "))
                 earth[key + "|rendered"] = "canvas" if rendered else "no canvas"
@@ -234,6 +236,48 @@ def _debug(name, text):
             f.write(text or "")
 
 
+def _click_text_buttons(page, words=("Dismiss", "Got it", "No thanks", "Close", "Skip")):
+    """Earth draws its promos on canvas, so find their buttons by OCR and
+    click them. Returns how many it clicked."""
+    tmp = "/tmp/_earth_buttons.png"
+    clicked = 0
+    for _ in range(3):
+        page.screenshot(path=tmp)
+        hit = None
+        # Pass 1 as-is; pass 2 upscaled and thresholded, since button text is
+        # often light blue on white, which plain OCR skips.
+        for scale in (1, 2):
+            src = tmp
+            if scale == 2:
+                try:
+                    from PIL import Image, ImageOps
+                    g = ImageOps.grayscale(Image.open(tmp))
+                    g = g.resize((g.width * 2, g.height * 2), Image.LANCZOS)
+                    g.point(lambda v: 0 if v < 200 else 255).save(tmp + ".2.png")
+                    src = tmp + ".2.png"
+                except Exception:
+                    break
+            try:
+                tsv = subprocess.run(["tesseract", src, "stdout", "--psm", "11", "tsv"],
+                                     capture_output=True, text=True, timeout=120).stdout
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                return clicked
+            for row in tsv.splitlines()[1:]:
+                f = row.split("\t")
+                if len(f) == 12 and f[11].strip().strip(".,") in words:
+                    x, y, w, h = map(int, f[6:10])
+                    hit = ((x + w / 2) / scale, (y + h / 2) / scale)
+                    break
+            if hit:
+                break
+        if not hit:
+            return clicked
+        page.mouse.click(*hit)
+        clicked += 1
+        page.wait_for_timeout(2000)
+    return clicked
+
+
 def _debug_image(path):
     if os.environ.get("LABEL_WATCH_DEBUG"):
         try:
@@ -246,7 +290,7 @@ def _debug_image(path):
             pass
 
 
-def _ocr_names(path):
+def _ocr_names(path, place=None):
     """Read a screenshot with tesseract and report which watched names and
     provenance words appear on screen. Only presence is compared, since raw
     OCR text wobbles from run to run."""
@@ -255,7 +299,8 @@ def _ocr_names(path):
     if txt is None:
         return "ocr unavailable"
     flat = re.sub(r"\s+", " ", txt).lower()
-    names = {n for spec in config.PLACES.values() for n in spec["names"]}
+    specs = [config.PLACES[place]] if place else config.PLACES.values()
+    names = {n for spec in specs for n in spec["names"]}
     found = sorted(n for n in names if n.lower() in flat)
     found += sorted(f"word:{w}" for w in config.PROVENANCE_WORDS if w.lower() in flat)
     return ", ".join(found) or "none"
@@ -315,7 +360,25 @@ def pages():
 
 # -------------------------------------------------------------------- feeds
 
+def _recent(item, days=14):
+    from email.utils import parsedate_to_datetime
+    import datetime as dt
+    raw = item.findtext("pubDate")
+    if not raw:
+        return True
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return True
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=dt.timezone.utc)
+    return dt.datetime.now(dt.timezone.utc) - when < dt.timedelta(days=days)
+
+
 def feeds():
+    """New items only. Google News reshuffles which older articles it returns
+    and rewrites their links, so items are keyed by title and anything older
+    than two weeks is ignored."""
     kws = [k.lower() for k in config.FEED_KEYWORDS]
     records = {}
     for name, url in config.FEEDS.items():
@@ -325,8 +388,10 @@ def feeds():
             link = (item.findtext("link") or "").strip()
             desc = html_to_text(item.findtext("description") or "")
             blob = f"{title} {desc}".lower()
+            if not _recent(item):
+                continue
             if name == "google_news" or any(k in blob for k in kws):
-                records[f"{name}|{link or hashlib.sha1(title.encode()).hexdigest()}"] = title
+                records[f"{name}|{title or link}"] = link
     return {"kind": "set", "records": records}
 
 
