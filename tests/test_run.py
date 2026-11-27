@@ -43,6 +43,8 @@ def fake(monkeypatch, tmp_path):
     monkeypatch.setattr(probes, "pages", lambda: {"kind": "text", "records": {"p": "same"}})
     monkeypatch.setattr(probes, "feeds", lambda: {"kind": "set", "records": dict(state["feed"])})
     monkeypatch.setattr(probes, "fedreg", lambda: {"kind": "set", "records": {}})
+    monkeypatch.setattr(probes, "stock", lambda now: {"symbol": "GOOG", "price": 1.0,
+                                                      "market_time": 0, "daily_closes": {}})
     return state
 
 
@@ -124,3 +126,17 @@ def test_blank_view_that_was_always_blank_stays_quiet(fake, gh):
     run.run()
     run.run()
     assert gh == []
+
+
+def test_parse_stock_and_day_move():
+    from watch import probes, site
+    data = {"chart": {"result": [{"meta": {"symbol": "GOOG", "regularMarketPrice": 101.0,
+            "regularMarketTime": 1764252000, "gmtoffset": -18000},
+            "timestamp": [1764079200, 1764165600, 1764252000],
+            "indicators": {"quote": [{"close": [100.0, None, 101.0]}]}}]}}
+    st = probes.parse_stock(data, "now")
+    assert st["price"] == 101.0 and len(st["daily_closes"]) == 2
+    days = sorted(st["daily_closes"])
+    close, pct = site.day_move(st["daily_closes"], days[1])
+    assert close == 101.0 and round(pct, 2) == 1.0
+    assert site.day_move(st["daily_closes"], days[0]) is None

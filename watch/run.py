@@ -153,6 +153,14 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         except Exception as e:
             errors[name] = repr(e)[:300]
 
+    # GOOG price for the status page. Not compared or alerted on; a failed
+    # fetch keeps the last price, which the page shows with its own time.
+    if want("stock"):
+        try:
+            save(os.path.join(SNAP, "_stock.json"), probes.stock(now))
+        except Exception as e:
+            errors["stock"] = repr(e)[:300]
+
     # Compare and store. Readings taken off screenshots ("|on_screen") can
     # misread, so a departure from the last confirmed reading opens a
     # "Possible change" issue right away, closes it if the old reading comes

@@ -444,3 +444,37 @@ def fedreg():
         for d in r.json().get("results", []):
             records[f"{term}|{d['html_url']}"] = f"{d['publication_date']}  {d['title']}"
     return {"kind": "set", "records": records}
+
+
+# ------------------------------------------------------------------ GOOG
+
+STOCK_URL = ("https://query1.finance.yahoo.com/v8/finance/chart/GOOG"
+             "?range=3mo&interval=1d&includePrePost=false")
+
+
+def parse_stock(data, fetched_at):
+    """Yahoo chart JSON -> what the page needs. Raises on anything missing."""
+    res = data["chart"]["result"][0]
+    meta = res["meta"]
+    closes = res["indicators"]["quote"][0]["close"]
+    days = {}
+    import datetime as dt
+    for ts, c in zip(res["timestamp"], closes):
+        if c is not None:
+            d = dt.datetime.fromtimestamp(ts + meta.get("gmtoffset", 0), dt.timezone.utc).date()
+            days[d.isoformat()] = round(c, 2)
+    return {
+        "symbol": meta.get("symbol", "GOOG"),
+        "exchange": meta.get("fullExchangeName") or meta.get("exchangeName", "Nasdaq"),
+        "currency": meta.get("currency", "USD"),
+        "price": round(meta["regularMarketPrice"], 2),
+        "previous_close": round(meta.get("chartPreviousClose") or meta.get("previousClose"), 2)
+        if (meta.get("chartPreviousClose") or meta.get("previousClose")) else None,
+        "market_time": meta["regularMarketTime"],
+        "fetched_at": fetched_at,
+        "daily_closes": dict(sorted(days.items())[-90:]),
+    }
+
+
+def stock(fetched_at):
+    return parse_stock(get(STOCK_URL).json(), fetched_at)

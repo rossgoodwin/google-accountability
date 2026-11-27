@@ -66,6 +66,66 @@ def picture(fname, crop):
         return None
 
 
+def _et(ts):
+    from zoneinfo import ZoneInfo
+    return dt.datetime.fromtimestamp(ts, ZoneInfo("America/New_York"))
+
+
+def day_move(closes, day):
+    """(close, change %) for a trading day against the trading day before it,
+    or None if the market was closed that day or the data doesn't reach."""
+    keys = sorted(closes)
+    if day not in closes or keys.index(day) == 0:
+        return None
+    prev = closes[keys[keys.index(day) - 1]]
+    return closes[day], (closes[day] - prev) / prev * 100
+
+
+def stock_html(stock, history):
+    if not stock:
+        return ""
+    closes = stock.get("daily_closes", {})
+    when = _et(stock["market_time"])
+    day = when.date().isoformat()
+    keys = sorted(closes)
+    prev = None
+    earlier = [k for k in keys if k < day]
+    if earlier:
+        prev = closes[earlier[-1]]
+    move = ""
+    if prev:
+        pct = (stock["price"] - prev) / prev * 100
+        move = f"<span class=move>{'+' if pct >= 0 else '\u2212'}{abs(pct):.2f}% on the day</span>"
+    stamp = when.strftime("%d %B %Y, %-I:%M %p ET")
+    fetched = e(stock.get("fetched_at", ""))
+    rows = []
+    for h in history:
+        d = h["time"][:10]
+        m = day_move(closes, d)
+        if m:
+            close, pct = m
+            val = f"${close:,.2f} ({'+' if pct >= 0 else '\u2212'}{abs(pct):.2f}%)"
+        else:
+            val = "<span class=dim>no trading that day, or outside the price data</span>"
+        rows.append(f"<tr><th scope=row>{e(d)}</th><td>{val}</td></tr>")
+    days = (f"<table class=stockdays><thead><tr><th>Date</th>"
+            f"<th>GOOG close (change on the day)</th></tr></thead><tbody>{''.join(rows)}</tbody></table>"
+            if rows else "<p class=dim>No label changes confirmed yet.</p>")
+    return f"""
+<section class=stock>
+  <h3>Alphabet stock</h3>
+  <div class=ticker>
+    <span class=sym>{e(stock['symbol'])} &middot; {e(stock['exchange'])}</span>
+    <b>${stock['price']:,.2f}</b>
+    {move}
+  </div>
+  <p class=dim>Price as of {e(stamp)}, from Yahoo Finance, delayed up to 15 minutes. Fetched {fetched}.</p>
+  <h4>GOOG on days a label change was confirmed</h4>
+  {days}
+  <p class=dim>Listed for reference only. Many things move a stock price, and nothing here claims that a label change moved this one, in either direction.</p>
+</section>"""
+
+
 def pretty_key(source, key):
     parts = key.split("|")
     if source == "maps" and len(parts) >= 4:
@@ -86,6 +146,7 @@ def build(now=None):
         shutil.rmtree(OUT)
     os.makedirs(os.path.join(OUT, "img"))
 
+    stock = load("_stock.json", None)
     mstate = load("_meters.json", {})
     restored, explained = mstate.get("restored", 0), mstate.get("explained", 0)
     thanks = mstate.get("thanks", [])
@@ -227,6 +288,13 @@ figcaption {{ font-size:12px; color:var(--dim); padding:7px 9px; }}
 .changes time {{ color:var(--dim); font-variant-numeric:tabular-nums; margin-right:6px; }}
 .src {{ font-weight:700; margin-right:6px; }}
 .flag {{ color:var(--accent); }}
+.stock {{ border-top:2px solid var(--fg); padding-top:18px; }}
+.ticker {{ display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin:4px 0 6px; }}
+.ticker .sym {{ font-weight:700; }}
+.ticker b {{ font:800 2.4rem/1 "Inter Tight", "Helvetica Neue", Arial, sans-serif; font-variant-numeric:tabular-nums; }}
+.ticker .move {{ font-variant-numeric:tabular-nums; }}
+h4 {{ font:700 .95rem/1.3 Cousine, "Courier New", monospace; margin:22px 0 8px; }}
+.stockdays tbody th {{ font-weight:400; }}
 footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; font-size:.85rem; color:var(--dim); }}
 @media (max-width:640px) {{ .meters {{ grid-template-columns:1fr; }} }}
 @media (max-width:560px) {{ h1 {{ font-size:2.1rem; }} tbody th {{ width:auto; }} .count b {{ font-size:2.6rem; }} .meter b {{ font-size:4rem; }} }}
@@ -264,6 +332,8 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
 
 {''.join(blocks)}
 
+{stock_html(stock, mstate.get("history", []))}
+
 <section>
   <h3>Changes</h3>
   {changes}
@@ -271,7 +341,7 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
 
 <footer>
   <p>Last checked {e(now.strftime('%d %B %Y, %H:%M UTC'))}. {health_line}</p>
-  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="{config.REPO_URL}">the repository</a>, whose history is the full record. The code is open source under the <a href="{config.REPO_URL}/blob/main/LICENSE">MIT License</a>.</p>
+  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Stock prices from Yahoo Finance. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="{config.REPO_URL}">the repository</a>, whose history is the full record. The code is open source under the <a href="{config.REPO_URL}/blob/main/LICENSE">MIT License</a>.</p>
 </footer>
 </main>
 </body>
