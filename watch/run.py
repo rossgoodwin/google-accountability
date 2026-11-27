@@ -157,7 +157,8 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
     # fetch keeps the last price, which the page shows with its own time.
     if want("stock"):
         try:
-            save(os.path.join(SNAP, "_stock.json"), probes.stock(now))
+            path = os.path.join(SNAP, "_stock.json")
+            save(path, meters.merge_stock(load(path, None), probes.stock(now)))
         except Exception as e:
             errors["stock"] = repr(e)[:300]
 

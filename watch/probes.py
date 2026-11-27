@@ -492,8 +492,67 @@ def _stooq(fetched_at):
             "daily_closes": dict(sorted(days.items())[-90:])}
 
 
+def _money(s):
+    return float(re.sub(r"[^0-9.\-]", "", str(s)))
+
+
+def _nasdaq(fetched_at):
+    h = {"User-Agent": UA, "Accept": "application/json, text/plain, */*",
+         "Origin": "https://www.nasdaq.com", "Referer": "https://www.nasdaq.com/"}
+    r = requests.get("https://api.nasdaq.com/api/quote/GOOG/info?assetclass=stocks",
+                     headers=h, timeout=TIMEOUT)
+    r.raise_for_status()
+    d = r.json()["data"]["primaryData"]
+    price = _money(d["lastSalePrice"])
+    prev = round(price - _money(d["netChange"]), 2) if d.get("netChange") not in (None, "", "UNCH") else price
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    stamp = re.sub(r"^DATA AS OF\s*", "", d.get("lastTradeTimestamp", ""), flags=re.I)
+    stamp = re.sub(r"\s*ET$", "", stamp).strip()
+    when = None
+    for fmt in ("%b %d, %Y %I:%M %p", "%b %d, %Y"):
+        try:
+            when = dt.datetime.strptime(stamp, fmt).replace(tzinfo=ZoneInfo("America/New_York"))
+            break
+        except ValueError:
+            pass
+    when = when or dt.datetime.now(dt.timezone.utc)
+    return {"price": round(price, 2), "previous_close": prev,
+            "market_time": int(when.timestamp()), "source": "Nasdaq"}
+
+
+def _cnbc(fetched_at):
+    r = requests.get("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol"
+                     "?symbols=GOOG&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json",
+                     headers={"User-Agent": UA}, timeout=TIMEOUT)
+    r.raise_for_status()
+    q = r.json()["FormattedQuoteResult"]["FormattedQuote"][0]
+    import datetime as dt
+    when = dt.datetime.strptime(q["last_time"][:19], "%Y-%m-%dT%H:%M:%S")
+    from zoneinfo import ZoneInfo
+    when = when.replace(tzinfo=ZoneInfo("America/New_York"))
+    return {"price": round(_money(q["last"]), 2),
+            "previous_close": round(_money(q["previous_day_closing"]), 2),
+            "market_time": int(when.timestamp()), "source": "CNBC"}
+
+
+def _google_finance(fetched_at):
+    html_ = get("https://www.google.com/finance/quote/GOOG:NASDAQ?hl=en").text
+    price = re.search(r'data-last-price="([0-9.]+)"', html_)
+    ts = re.search(r'data-last-normal-market-timestamp="([0-9]+)"', html_)
+    prev = re.search(r'Previous close</div>.*?\$([0-9,.]+)', html_, re.S)
+    if not price:
+        raise ValueError("no price on the page")
+    import time as _t
+    return {"price": round(float(price.group(1)), 2),
+            "previous_close": round(_money(prev.group(1)), 2) if prev else None,
+            "market_time": int(ts.group(1)) if ts else int(_t.time()),
+            "source": "Google Finance"}
+
+
 def stock(fetched_at):
-    """GOOG from the first source that answers: Yahoo Finance, then Stooq."""
+    """GOOG from the first source that answers. Each returns at least price,
+    market_time and source; Yahoo and Stooq also bring daily history."""
     problems = []
     for url in (STOCK_URL, STOCK_URL.replace("query1", "query2")):
         try:
@@ -504,9 +563,16 @@ def stock(fetched_at):
             out["source"] = "Yahoo Finance"
             return out
         except Exception as e:
-            problems.append(f"yahoo: {e!r}"[:200])
-    try:
-        return _stooq(fetched_at)
-    except Exception as e:
-        problems.append(f"stooq: {e!r}"[:200])
+            problems.append(f"yahoo: {e!r}"[:160])
+    for fn in (_nasdaq, _cnbc, _google_finance, _stooq):
+        try:
+            out = fn(fetched_at)
+            out.setdefault("symbol", "GOOG")
+            out.setdefault("exchange", "Nasdaq")
+            out.setdefault("currency", "USD")
+            out.setdefault("daily_closes", {})
+            out["fetched_at"] = fetched_at
+            return out
+        except Exception as e:
+            problems.append(f"{fn.__name__.strip('_')}: {e!r}"[:160])
     raise RuntimeError(" | ".join(problems))

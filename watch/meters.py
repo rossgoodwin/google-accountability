@@ -70,3 +70,18 @@ def thanks_lines(old_views, new_views, date):
             lines.append(f"{date}: Google Maps now tells US users where the name "
                          f"“{NEW[place]}” comes from. Thank you.")
     return lines
+
+
+def merge_stock(old, new):
+    """Combine a fresh quote with the stored one: the last price seen on each
+    market day stands as that day's close, so history builds up from our own
+    checks even when a source gives no history."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    closes = dict((old or {}).get("daily_closes", {}))
+    closes.update(new.get("daily_closes", {}))
+    day = dt.datetime.fromtimestamp(new["market_time"], ZoneInfo("America/New_York")).date().isoformat()
+    closes[day] = new["price"]
+    merged = dict(new)
+    merged["daily_closes"] = dict(sorted(closes.items())[-120:])
+    return merged

@@ -140,3 +140,10 @@ def test_parse_stock_and_day_move():
     close, pct = site.day_move(st["daily_closes"], days[1])
     assert close == 101.0 and round(pct, 2) == 1.0
     assert site.day_move(st["daily_closes"], days[0]) is None
+
+
+def test_merge_stock_builds_history():
+    from watch import meters
+    a = meters.merge_stock(None, {"price": 100.0, "market_time": 1764277200, "previous_close": 99.0})
+    b = meters.merge_stock(a, {"price": 101.0, "market_time": 1764277200 + 86400})
+    assert list(b["daily_closes"].values()) == [100.0, 101.0]

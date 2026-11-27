@@ -40,10 +40,11 @@ jobs:
         run: |
           python - <<'PY'
           import datetime as dt
-          from watch import probes, run
+          from watch import meters, probes, run
           now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
           try:
-              run.save("snapshots/_stock.json", probes.stock(now))
+              old = run.load("snapshots/_stock.json", None)
+              run.save("snapshots/_stock.json", meters.merge_stock(old, probes.stock(now)))
               print(open("snapshots/_stock.json").read()[:300])
           except Exception as e:
               print(f"::warning::GOOG price fetch failed: {e}"[:900])

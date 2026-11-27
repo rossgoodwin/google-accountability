@@ -92,6 +92,8 @@ def stock_html(stock, history):
     earlier = [k for k in keys if k < day]
     if earlier:
         prev = closes[earlier[-1]]
+    elif stock.get("previous_close"):
+        prev = stock["previous_close"]
     move = ""
     if prev:
         pct = (stock["price"] - prev) / prev * 100
