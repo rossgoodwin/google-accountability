@@ -476,5 +476,37 @@ def parse_stock(data, fetched_at):
     }
 
 
+def _stooq(fetched_at):
+    """Stooq's free CSVs: latest quote plus daily history. Times are Polish."""
+    import csv, io, datetime as dt
+    from zoneinfo import ZoneInfo
+    q = list(csv.DictReader(io.StringIO(
+        get("https://stooq.com/q/l/?s=goog.us&f=sd2t2ohlcv&h&e=csv").text)))[0]
+    when = dt.datetime.strptime(f"{q['Date']} {q['Time']}", "%Y-%m-%d %H:%M:%S")
+    when = when.replace(tzinfo=ZoneInfo("Europe/Warsaw"))
+    hist = csv.DictReader(io.StringIO(get("https://stooq.com/q/d/l/?s=goog.us&i=d").text))
+    days = {r["Date"]: round(float(r["Close"]), 2) for r in hist if r.get("Close")}
+    return {"symbol": "GOOG", "exchange": "Nasdaq", "currency": "USD",
+            "price": round(float(q["Close"]), 2), "market_time": int(when.timestamp()),
+            "fetched_at": fetched_at, "source": "Stooq",
+            "daily_closes": dict(sorted(days.items())[-90:])}
+
+
 def stock(fetched_at):
-    return parse_stock(get(STOCK_URL).json(), fetched_at)
+    """GOOG from the first source that answers: Yahoo Finance, then Stooq."""
+    problems = []
+    for url in (STOCK_URL, STOCK_URL.replace("query1", "query2")):
+        try:
+            r = requests.get(url, headers={"User-Agent": UA, "Accept": "application/json"},
+                             timeout=TIMEOUT)
+            r.raise_for_status()
+            out = parse_stock(r.json(), fetched_at)
+            out["source"] = "Yahoo Finance"
+            return out
+        except Exception as e:
+            problems.append(f"yahoo: {e!r}"[:200])
+    try:
+        return _stooq(fetched_at)
+    except Exception as e:
+        problems.append(f"stooq: {e!r}"[:200])
+    raise RuntimeError(" | ".join(problems))

@@ -119,7 +119,7 @@ def stock_html(stock, history):
     <b>${stock['price']:,.2f}</b>
     {move}
   </div>
-  <p class=dim>Price as of {e(stamp)}, from Yahoo Finance, delayed up to 15 minutes. Fetched {fetched}.</p>
+  <p class=dim>Price as of {e(stamp)}, from {e(stock.get("source", "Yahoo Finance"))}, delayed up to 15 minutes. Fetched {fetched}.</p>
   <h4>GOOG on days a label change was confirmed</h4>
   {days}
   <p class=dim>Listed for reference only. Many things move a stock price, and nothing here claims that a label change moved this one, in either direction.</p>
@@ -341,7 +341,7 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
 
 <footer>
   <p>Last checked {e(now.strftime('%d %B %Y, %H:%M UTC'))}. {health_line}</p>
-  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Stock prices from Yahoo Finance. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="{config.REPO_URL}">the repository</a>, whose history is the full record. The code is open source under the <a href="{config.REPO_URL}/blob/main/LICENSE">MIT License</a>.</p>
+  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Stock prices from Yahoo Finance or Stooq. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="{config.REPO_URL}">the repository</a>, whose history is the full record. The code is open source under the <a href="{config.REPO_URL}/blob/main/LICENSE">MIT License</a>.</p>
 </footer>
 </main>
 </body>

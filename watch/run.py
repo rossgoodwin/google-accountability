@@ -258,6 +258,7 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         else:
             health.pop(k, None)
     save(os.path.join(SNAP, "_health.json"), health)
+    save(os.path.join(SNAP, "_last_errors.json"), errors)   # for diagnosis
 
     # Report.
     os.makedirs(OUT, exist_ok=True)
