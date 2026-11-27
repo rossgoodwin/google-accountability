@@ -169,7 +169,12 @@ def browser_probes(shots_dir):
                         page.screenshot(path=shot)
                         # OCR only the map itself: the search box would echo
                         # the query and the side panel is read from the DOM.
-                        maps[key + "|on_screen"] = _ocr_names(_map_only(shot), place)
+                        seen = _ocr_names(_map_only(shot), place)
+                        # Reading no name at all is a failed reading, not a
+                        # change: keep the last value. Some map views never
+                        # show a readable label, so misses here aren't errors.
+                        if seen not in ("none", "ocr unavailable"):
+                            maps[key + "|on_screen"] = seen
                     except Exception as e:
                         errors[f"maps|{key}"] = repr(e)[:300]
 
@@ -204,7 +209,11 @@ def browser_probes(shots_dir):
                     if found not in ("none", "ocr unavailable"):
                         seen.update(found.split(", "))
                 earth[key + "|rendered"] = "canvas" if rendered else "no canvas"
-                earth[key + "|on_screen"] = ", ".join(sorted(seen)) or "none"
+                if seen:
+                    earth[key + "|on_screen"] = ", ".join(sorted(seen))
+                else:
+                    # No name on any view: a failed reading, not a change.
+                    errors[f"earth-ocr|{key}"] = "no label read"
             except Exception as e:
                 errors[f"earth|{key}"] = repr(e)[:300]
         browser.close()
