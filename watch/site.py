@@ -150,6 +150,8 @@ def build(now=None):
             new = ev["new"] if len(ev["new"]) < 120 else ev["new"][:117] + "..."
             change = f"{e(what)}: <s>{e(old)}</s> → {e(new)}"
         flag = " <strong class=flag>possible provenance note</strong>" if ev.get("provenance") else ""
+        if ev["key"].endswith("|on_screen"):
+            flag += " <span class=dim>(read from screenshots over an hour)</span>"
         items.append(f"<li><time>{e(ev['time'])}</time> <span class=src>{e(src)}</span> {change}{flag}</li>")
     changes = (f"<ul class=changes>{''.join(items)}</ul>" if items
                else "<p class=dim>No changes recorded yet. Watching began on 26 November 2026.</p>")

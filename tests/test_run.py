@@ -81,8 +81,8 @@ def test_ocr_needs_two_runs(fake):
     assert run.run() is False
     assert json.load(open("snapshots/_pending.json")) == {}
     fake["ocr"] = "Lake Ontario (Lake America)"   # real change
-    assert run.run() is False                      # first sighting held
-    assert run.run() is True                       # confirmed
+    assert [run.run() for _ in range(3)] == [False, False, False]   # held
+    assert run.run() is True                       # confirmed on the 4th check
     assert "Lake Ontario (Lake America)" in open("out/report.md").read()
     assert run.run() is False
 
@@ -105,3 +105,14 @@ def test_meters_and_thanks(fake, monkeypatch):
     assert open("out/title.txt").read().startswith("Names restored 13%")
     assert "0% \u2192 13%" in open("out/report.md").read()
     assert run.run() is False
+
+
+def test_two_misreads_do_not_count(fake):
+    run.run()
+    fake["ocr"] = "Gulf of America, misread"
+    assert [run.run() for _ in range(2)] == [False, False]
+    fake["ocr"] = "Lake America"                   # back to the real reading
+    assert run.run() is False
+    assert json.load(open("snapshots/_pending.json")) == {}
+    import os
+    assert not os.path.exists("snapshots/_events.json")   # nothing reached the page log

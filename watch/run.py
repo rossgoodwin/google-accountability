@@ -117,8 +117,8 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         except Exception as e:
             errors[name] = repr(e)[:300]
 
-    # Compare and store. OCR readings ("|on_screen") can flicker, so a change
-    # there has to show up on two runs in a row before it counts.
+    # Compare and store. OCR readings ("|on_screen") can misread, so a change
+    # there has to show up config.OCR_CONFIRM_RUNS checks in a row first.
     pending = load(os.path.join(SNAP, "_pending.json"), {})
     sections = []
     for source, r in results.items():
@@ -128,10 +128,15 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         changes = []
         for k, o, v in compare(r["kind"], old, records):
             pk = f"{source}|{k}"
-            if k.endswith("|on_screen") and pending.get(pk) != v:
-                pending[pk] = v
-                records[k] = o          # hold the old reading for now
-                continue
+            if k.endswith("|on_screen"):
+                p = pending.get(pk)
+                if not isinstance(p, dict):   # older format held a bare value
+                    p = {"value": p, "count": 1} if p is not None else None
+                count = p["count"] + 1 if p and p["value"] == v else 1
+                if count < config.OCR_CONFIRM_RUNS:
+                    pending[pk] = {"value": v, "count": count}
+                    records[k] = o      # hold the old reading for now
+                    continue
             pending.pop(pk, None)
             changes.append((k, o, v))
         for k, v in r["records"].items():  # a flicker that settled back clears

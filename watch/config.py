@@ -68,6 +68,11 @@ NOISE_PATTERNS = [
     r"^See more$",
 ]
 
+# Labels read off screenshots by OCR can misread for a check or two. A new
+# reading has to come back this many checks in a row (about an hour) before
+# it counts as a change, reaches the meters or shows on the page.
+OCR_CONFIRM_RUNS = 4
+
 # How many failing runs in a row before a source counts as "blind" and alerts.
 BLIND_AFTER = 4
 
