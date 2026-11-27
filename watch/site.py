@@ -233,7 +233,7 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
 <body>
 <main>
 <h1>Google Accountability</h1>
-<p class=subtitle>A bot that checks what Google Maps and Google Earth call the Gulf of Mexico and Lake Ontario in four countries, about every 15 minutes, and keeps a public record of every change. <a href="{config.REPO_URL}">Code and full record on GitHub</a></p>
+<p class=subtitle>An open-source bot that checks what Google Maps and Google Earth call the Gulf of Mexico and Lake Ontario in four countries, about every 15 minutes, and keeps a public record of every change. <a href="{config.REPO_URL}">Code and full record on GitHub</a></p>
 
 <div class=meters>
   <div class=meter>
@@ -269,7 +269,7 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
 
 <footer>
   <p>Last checked {e(now.strftime('%d %B %Y, %H:%M UTC'))}. {health_line}</p>
-  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="{config.REPO_URL}">the repository</a>, whose history is the full record.</p>
+  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="{config.REPO_URL}">the repository</a>, whose history is the full record. The code is open source under the <a href="{config.REPO_URL}/blob/main/LICENSE">MIT License</a>.</p>
 </footer>
 </main>
 </body>

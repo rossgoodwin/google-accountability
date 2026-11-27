@@ -69,3 +69,7 @@ Maps sometimes serves automated visitors a cut-down "limited view" panel. Those 
 To see what the probes actually read, run the workflow by hand with **debug** ticked. Raw OCR text, Earth's page text and small Earth screenshots land in `snapshots/_debug/`. Delete that folder afterwards.
 
 Run the tests with `python -m pytest`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
