@@ -117,15 +117,31 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         except Exception as e:
             errors[name] = repr(e)[:300]
 
-    # Compare and store.
+    # Compare and store. OCR readings ("|on_screen") can flicker, so a change
+    # there has to show up on two runs in a row before it counts.
+    pending = load(os.path.join(SNAP, "_pending.json"), {})
     sections = []
     for source, r in results.items():
         path = os.path.join(SNAP, f"{source}.json")
         old = load(path, None)
-        changes = compare(r["kind"], old, r["records"])
-        save(path, merge(r["kind"], old, r["records"]))
+        records = dict(r["records"])
+        changes = []
+        for k, o, v in compare(r["kind"], old, records):
+            pk = f"{source}|{k}"
+            if k.endswith("|on_screen") and pending.get(pk) != v:
+                pending[pk] = v
+                records[k] = o          # hold the old reading for now
+                continue
+            pending.pop(pk, None)
+            changes.append((k, o, v))
+        for k, v in r["records"].items():  # a flicker that settled back clears
+            pk = f"{source}|{k}"
+            if pk in pending and old and old.get(k) == v:
+                pending.pop(pk)
+        save(path, merge(r["kind"], old, records))
         if changes:
             sections.append((source, changes))
+    save(os.path.join(SNAP, "_pending.json"), pending)
 
     # Health: a source that keeps failing means the bot has gone blind there.
     health = load(os.path.join(SNAP, "_health.json"), {})

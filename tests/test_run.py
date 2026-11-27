@@ -34,6 +34,7 @@ def fake(monkeypatch, tmp_path):
         if state["fail"]:
             raise RuntimeError("blocked")
         recs = {"lake|Lake Ontario|gl=us|name": state["name"],
+                "lake|Lake Ontario|gl=us|on_screen": state.get("ocr", "Lake America"),
                 "lake|Lake Ontario|gl=us|panel": probes.normalize(state["panel"])}
         return {"kind": "text", "records": recs}, {"kind": "text", "records": {}}, {}
 
@@ -70,3 +71,17 @@ def test_goes_blind_once(fake):
     fake["fail"] = False
     run.run()
     assert json.load(open("snapshots/_health.json")) == {}
+
+
+def test_ocr_needs_two_runs(fake):
+    run.run()
+    fake["ocr"] = "none"          # one-off misread
+    assert run.run() is False
+    fake["ocr"] = "Lake America"  # back to normal: nothing pending
+    assert run.run() is False
+    assert json.load(open("snapshots/_pending.json")) == {}
+    fake["ocr"] = "Lake Ontario (Lake America)"   # real change
+    assert run.run() is False                      # first sighting held
+    assert run.run() is True                       # confirmed
+    assert "Lake Ontario (Lake America)" in open("out/report.md").read()
+    assert run.run() is False
