@@ -99,6 +99,10 @@ def stock_html(stock, history):
         pct = (stock["price"] - prev) / prev * 100
         move = f"<span class=move>{'+' if pct >= 0 else '\u2212'}{abs(pct):.2f}% on the day</span>"
     stamp = when.strftime("%d %B %Y, %-I:%M %p ET")
+    if stock.get("session") == "close":
+        label, delay = "Closing price,", ""
+    else:
+        label, delay = "Price as of", ", delayed up to 15 minutes"
     fetched = e(stock.get("fetched_at", ""))
     rows = []
     for h in history:
@@ -121,7 +125,7 @@ def stock_html(stock, history):
     <b>${stock['price']:,.2f}</b>
     {move}
   </div>
-  <p class=dim>Price as of {e(stamp)}, from {e(stock.get("source", "Yahoo Finance"))}, delayed up to 15 minutes. Fetched {fetched}.</p>
+  <p class=dim>{label} {e(stamp)}, from {e(stock.get("source", "Yahoo Finance"))}{delay}. Fetched {fetched}.</p>
   <h4>GOOG on days a label change was confirmed</h4>
   {days}
   <p class=dim>Listed for reference only. Many things move a stock price, and nothing here claims that a label change moved this one, in either direction.</p>

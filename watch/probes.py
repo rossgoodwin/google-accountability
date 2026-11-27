@@ -558,12 +558,25 @@ def _nasdaq(fetched_at):
     r = requests.get("https://api.nasdaq.com/api/quote/GOOG/info?assetclass=stocks",
                      headers=h, timeout=TIMEOUT)
     r.raise_for_status()
-    d = r.json()["data"]["primaryData"]
+    data = r.json()["data"]
+    # Outside the regular session, primaryData holds pre- or after-hours
+    # trades; secondaryData holds the regular-session close. Use the close.
+    status = (data.get("marketStatus") or "").lower()
+    d = data["primaryData"]
+    session = "live"
+    sec = data.get("secondaryData") or {}
+    if status not in ("open", "market open") and sec.get("lastSalePrice"):
+        d, session = sec, "close"
     price = _money(d["lastSalePrice"])
-    prev = round(price - _money(d["netChange"]), 2) if d.get("netChange") not in (None, "", "UNCH") else price
+    prev = None
+    if d.get("netChange") not in (None, "", "UNCH"):
+        prev = round(price - _money(d["netChange"]), 2)
     import datetime as dt
     from zoneinfo import ZoneInfo
-    stamp = re.sub(r"^DATA AS OF\s*", "", d.get("lastTradeTimestamp", ""), flags=re.I)
+    stamp = d.get("lastTradeTimestamp", "")
+    if re.search(r"closed at", stamp, re.I):
+        session = "close"
+    stamp = re.sub(r"^(DATA AS OF|CLOSED AT|AS OF)\s*", "", stamp.strip(), flags=re.I)
     stamp = re.sub(r"\s*ET$", "", stamp).strip()
     when = None
     for fmt in ("%b %d, %Y %I:%M %p", "%b %d, %Y"):
@@ -573,7 +586,7 @@ def _nasdaq(fetched_at):
         except ValueError:
             pass
     when = when or dt.datetime.now(dt.timezone.utc)
-    return {"price": round(price, 2), "previous_close": prev,
+    return {"price": round(price, 2), "previous_close": prev, "session": session,
             "market_time": int(when.timestamp()), "source": "Nasdaq"}
 
 

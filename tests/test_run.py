@@ -168,3 +168,18 @@ def test_looks_like_map(tmp_path):
     assert looks_like_map(str(roadmap), "", "maps")[0]
     assert not looks_like_map(str(dash), "Before you continue to Google", "maps")[0]
     assert not looks_like_map(str(dash), "", "maps")[0]
+
+
+def test_nasdaq_uses_regular_close_after_hours(monkeypatch):
+    from watch import probes
+    class R:
+        def raise_for_status(self): pass
+        def json(self):
+            return {"data": {"marketStatus": "After-Hours",
+                "primaryData": {"lastSalePrice": "$274.03", "netChange": "+1.10",
+                                "lastTradeTimestamp": "Nov 27, 2026 3:45 PM ET"},
+                "secondaryData": {"lastSalePrice": "$273.10", "netChange": "+0.95",
+                                  "lastTradeTimestamp": "Closed at Nov 27, 2026 1:00 PM ET"}}}
+    monkeypatch.setattr(probes.requests, "get", lambda *a, **k: R())
+    q = probes._nasdaq("now")
+    assert q["price"] == 273.10 and q["session"] == "close" and q["previous_close"] == 272.15
