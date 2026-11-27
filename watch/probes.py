@@ -148,7 +148,9 @@ def browser_probes(shots_dir):
                         shot = os.path.join(shots_dir,
                                             f"maps_{place}_{_slug(q)}_{gl}.png")
                         page.screenshot(path=shot)
-                        maps[key + "|on_screen"] = _ocr_names(shot, place)
+                        # OCR only the map itself: the search box would echo
+                        # the query and the side panel is read from the DOM.
+                        maps[key + "|on_screen"] = _ocr_names(_map_only(shot), place)
                     except Exception as e:
                         errors[f"maps|{key}"] = repr(e)[:300]
 
@@ -304,6 +306,17 @@ def _ocr_names(path, place=None):
     found = sorted(n for n in names if n.lower() in flat)
     found += sorted(f"word:{w}" for w in config.PROVENANCE_WORDS if w.lower() in flat)
     return ", ".join(found) or "none"
+
+
+def _map_only(path, left=440, top=72):
+    try:
+        from PIL import Image
+        img = Image.open(path)
+        out = path[:-4] + "_map.png"
+        img.crop((left, top, img.width, img.height)).save(out)
+        return out
+    except Exception:
+        return path
 
 
 def _slug(s):
