@@ -41,9 +41,11 @@ jobs:
 
       - name: Install
         run: |
-          sudo apt-get install -y -qq tesseract-ocr
-          pip install -r requirements.txt
-          python -m playwright install --with-deps chromium
+          retry() { for i in 1 2 3; do "$@" && return 0; echo "retry $i: $*"; sleep 15; done; return 1; }
+          retry sudo apt-get update -qq
+          retry sudo apt-get install -y -qq tesseract-ocr
+          retry pip install -r requirements.txt
+          retry python -m playwright install --with-deps chromium
 
       - name: Run probes
         id: run
