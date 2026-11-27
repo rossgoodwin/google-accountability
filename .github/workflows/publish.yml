@@ -42,8 +42,11 @@ jobs:
           import datetime as dt
           from watch import probes, run
           now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-          run.save("snapshots/_stock.json", probes.stock(now))
-          print(open("snapshots/_stock.json").read()[:300])
+          try:
+              run.save("snapshots/_stock.json", probes.stock(now))
+              print(open("snapshots/_stock.json").read()[:300])
+          except Exception as e:
+              print(f"::warning::GOOG price fetch failed: {e}"[:900])
           PY
 
       - name: Fetch the latest screenshots
