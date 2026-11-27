@@ -1,0 +1,62 @@
+name: publish-page
+
+# Rebuilds and deploys the status page from the latest saved results, without
+# running a full check. Runs when page code changes, or by hand.
+on:
+  push:
+    branches: [main]
+    paths: ["watch/site.py", "watch/meters.py", "watch/config.py", "LICENSE"]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: publish-page
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pillow
+
+      - name: Fetch the latest screenshots
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          id=$(gh api "repos/$REPO/actions/artifacts?per_page=30" \
+               --jq '[.artifacts[]|select(.name|startswith("screens-"))|select(.expired|not)][0].id')
+          mkdir -p out/screens
+          if [ -n "$id" ] && [ "$id" != "null" ]; then
+            gh api "repos/$REPO/actions/artifacts/$id/zip" > /tmp/screens.zip
+            unzip -qo /tmp/screens.zip -d out/screens
+          fi
+          ls out/screens | head
+
+      - run: python -m watch.site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy page
+        id: deploy
+        uses: actions/deploy-pages@v4
