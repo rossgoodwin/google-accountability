@@ -5,7 +5,8 @@ name: publish-page
 on:
   push:
     branches: [main]
-    paths: ["watch/site.py", "watch/meters.py", "watch/config.py", "LICENSE"]
+    paths: ["watch/site.py", "watch/meters.py", "watch/config.py", "LICENSE",
+            ".github/workflows/publish.yml"]
   workflow_dispatch:
 
 permissions:
@@ -32,7 +33,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install pillow
+      - run: pip install pillow requests
+
+      - name: Fetch the GOOG price
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import datetime as dt
+          from watch import probes, run
+          now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+          run.save("snapshots/_stock.json", probes.stock(now))
+          print(open("snapshots/_stock.json").read()[:300])
+          PY
 
       - name: Fetch the latest screenshots
         continue-on-error: true
