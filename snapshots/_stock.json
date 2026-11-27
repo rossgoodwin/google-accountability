@@ -1,13 +1,14 @@
 {
  "currency": "USD",
  "daily_closes": {
-  "2026-11-27": 273.76
+  "2026-11-27": 272.44
  },
  "exchange": "Nasdaq",
- "fetched_at": "2026-11-27 20:53 UTC",
- "market_time": 1795813260,
- "previous_close": 272.44,
- "price": 273.76,
+ "fetched_at": "2026-11-27 21:07 UTC",
+ "market_time": 1795802400,
+ "previous_close": 270.98,
+ "price": 272.44,
+ "session": "close",
  "source": "Nasdaq",
  "symbol": "GOOG"
 }
