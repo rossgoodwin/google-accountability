@@ -118,6 +118,25 @@ jobs:
         continue-on-error: true
         uses: actions/deploy-pages@v4
 
+      - name: Wait before retrying the deploy
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 45
+
+      - name: Deploy page (retry)
+        id: deploy2
+        if: steps.deploy.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before the last try
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 90
+
+      - name: Deploy page (last try)
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
   # Layer 2: each run starts the next one 15 minutes after it began, so the
   # checks keep going even when GitHub's scheduler skips slots. Runs share one
   # concurrency group, so extra starts collapse into a single queue.
