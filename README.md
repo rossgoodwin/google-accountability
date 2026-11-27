@@ -53,7 +53,7 @@ Labels read off screenshots, meaning the map image and the Earth globe, can misr
 2. If the old reading comes back, the bot comments, relabels the issue `reverted` and closes it. The status page never changes.
 3. If the new reading holds for four checks in a row (`OCR_CONFIRM_RUNS`, about an hour), the bot comments, relabels the issue `confirmed` and leaves it open. Only then does the reading reach the snapshots, the meters, the thank-you lines and the page.
 
-Views that never show a readable label stay quiet. Open possible changes are tracked in `snapshots/_open.json`. Names Google serves as page text, such as the Maps place name, alert at once with no waiting.
+Views that never show a readable label stay quiet. Before any of this, each screenshot has to pass a "this is the map" check (`looks_like_map` in `watch/probes.py`). If the headless browser lands on Earth's dashboard, a consent page, a robot check or a blank load, the view records nothing, so it can't open an issue. The miss counts toward the "gone blind" alert instead. Earth frames fail the check when they're mostly white; Maps views fail when no water shows; and either fails on phrases like "No projects yet" or "unusual traffic". Open possible changes are tracked in `snapshots/_open.json`. Names Google serves as page text, such as the Maps place name, alert at once with no waiting.
 
 ## Status page
 

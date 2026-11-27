@@ -156,6 +156,17 @@ def browser_probes(shots_dir):
                             first.first.click(timeout=10000)
                             page.wait_for_timeout(6000)
                         data = page.evaluate(MAPS_JS)
+                        shot = os.path.join(shots_dir,
+                                            f"maps_{place}_{_slug(q)}_{gl}.png")
+                        page.screenshot(path=shot)
+                        map_area = _map_only(shot)
+                        seen = _ocr_names(map_area, place)
+                        ok, why = looks_like_map(map_area, _ocr_names.last_text, "maps")
+                        if not ok:
+                            # Not the map at all: record nothing for this view,
+                            # so a failed load can't look like a change.
+                            errors[f"maps-nomap|{key}"] = why
+                            continue
                         maps[key + "|name"] = (data["h1"] or data["title"]).strip()
                         # Google sometimes serves bots a cut-down panel. Skip
                         # it rather than report it; the last full panel stands.
@@ -164,15 +175,10 @@ def browser_probes(shots_dir):
                         # Any origin note sits beside the name, above the
                         # panel's encyclopedia text, so only that header is read.
                         maps[key + "|note"] = note_words(data["h1"] + "\n" + data["panel"])
-                        shot = os.path.join(shots_dir,
-                                            f"maps_{place}_{_slug(q)}_{gl}.png")
-                        page.screenshot(path=shot)
-                        # OCR only the map itself: the search box would echo
-                        # the query and the side panel is read from the DOM.
-                        seen = _ocr_names(_map_only(shot), place)
-                        # Reading no name at all is a failed reading, not a
-                        # change: keep the last value. Some map views never
-                        # show a readable label, so misses here aren't errors.
+                        # The map-label reading (OCR of the map area only, so
+                        # the search box can't echo the query). Blank readings
+                        # go to run.py, which treats them as possible changes
+                        # only on views that normally show a name.
                         if seen != "ocr unavailable":
                             maps[key + "|on_screen"] = seen
                     except Exception as e:
@@ -185,6 +191,7 @@ def browser_probes(shots_dir):
                 # the camera to the place directly, from more than one height.
                 lat, lon, dists = spec["earth"]
                 seen, rendered = set(), False
+                skipped, globe_views = [], 0
                 for n, dist in enumerate(dists):
                     page.goto("https://earth.google.com/web/"
                               f"@{lat},{lon},0a,{dist}d,35y,0h,0t,0r",
@@ -206,10 +213,19 @@ def browser_probes(shots_dir):
                     page.screenshot(path=shot)
                     _debug_image(shot)
                     found = _ocr_names(shot, place)
+                    ok, why = looks_like_map(shot, _ocr_names.last_text, "earth")
+                    if not ok:
+                        skipped.append(why)
+                        continue
+                    globe_views += 1
                     if found not in ("none", "ocr unavailable"):
                         seen.update(found.split(", "))
                 earth[key + "|rendered"] = "canvas" if rendered else "no canvas"
-                earth[key + "|on_screen"] = ", ".join(sorted(seen)) or "none"
+                if globe_views:
+                    earth[key + "|on_screen"] = ", ".join(sorted(seen)) or "none"
+                else:
+                    # Never reached the globe: no reading, so no issue.
+                    errors[f"earth-nomap|{key}"] = "; ".join(skipped)[:200]
             except Exception as e:
                 errors[f"earth|{key}"] = repr(e)[:300]
         browser.close()
@@ -316,12 +332,52 @@ def _debug_image(path):
             pass
 
 
+NOT_A_MAP_PHRASES = [
+    "no projects yet", "sign in to create projects", "map projects", "local kml editor",
+    "unusual traffic", "before you continue", "not a robot", "captcha",
+    "something went wrong", "can't load", "cannot load", "try again later",
+]
+
+
+def _colour_stats(path):
+    from PIL import Image
+    im = Image.open(path).convert("RGB")
+    im.thumbnail((300, 300))
+    px = list(im.getdata())
+    n = len(px) or 1
+    water = sum(1 for r, g, b in px if b - r > 30 and b > 90) / n
+    white = sum(1 for r, g, b in px if min(r, g, b) > 225) / n
+    return water, white
+
+
+def looks_like_map(path, ocr_text, surface):
+    """Whether a screenshot shows the map or globe at all, rather than a
+    dashboard, consent page, robot check or blank load. Returns (ok, reason).
+    Earth: real globe views are mostly imagery, so a frame that is mostly
+    white is a dashboard or dialog. Maps: its land is near-white, so instead
+    the view must show water, which any map of these places does."""
+    flat = re.sub(r"\s+", " ", (ocr_text or "")).lower()
+    for phrase in NOT_A_MAP_PHRASES:
+        if phrase in flat:
+            return False, f"screen says \u201c{phrase}\u201d"
+    try:
+        water, white = _colour_stats(path)
+    except Exception:
+        return True, "colour check unavailable"
+    if surface == "earth" and white > 0.35:
+        return False, f"{white:.0%} of the frame is blank or white"
+    if surface == "maps" and water < 0.05:
+        return False, f"only {water:.0%} of the map shows water"
+    return True, "ok"
+
+
 def _ocr_names(path, place=None):
     """Read a screenshot with tesseract and report which watched names and
     provenance words appear on screen. Only presence is compared, since raw
     OCR text wobbles from run to run."""
     txt = _ocr_text(path)
     _debug("ocr_" + os.path.basename(path), txt)
+    _ocr_names.last_text = txt or ""
     if txt is None:
         return "ocr unavailable"
     flat = re.sub(r"\s+", " ", txt).lower()

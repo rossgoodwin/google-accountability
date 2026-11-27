@@ -147,3 +147,24 @@ def test_merge_stock_builds_history():
     a = meters.merge_stock(None, {"price": 100.0, "market_time": 1764277200, "previous_close": 99.0})
     b = meters.merge_stock(a, {"price": 101.0, "market_time": 1764277200 + 86400})
     assert list(b["daily_closes"].values()) == [100.0, 101.0]
+
+
+def test_looks_like_map(tmp_path):
+    from PIL import Image, ImageDraw
+    from watch.probes import looks_like_map
+    globe = tmp_path / "globe.png"
+    im = Image.new("RGB", (800, 500), (40, 80, 140))       # water
+    ImageDraw.Draw(im).rectangle((0, 0, 800, 200), fill=(70, 100, 50))   # land
+    im.save(globe)
+    assert looks_like_map(str(globe), "Lake America Camera: 800 km", "earth")[0]
+    dash = tmp_path / "dash.png"
+    Image.new("RGB", (800, 500), (250, 250, 250)).save(dash)
+    assert not looks_like_map(str(dash), "", "earth")[0]
+    assert not looks_like_map(str(globe), "Map projects No projects yet", "earth")[0]
+    roadmap = tmp_path / "road.png"
+    im = Image.new("RGB", (800, 500), (248, 249, 250))     # Maps land
+    ImageDraw.Draw(im).rectangle((200, 100, 700, 400), fill=(170, 218, 255))   # Maps water
+    im.save(roadmap)
+    assert looks_like_map(str(roadmap), "", "maps")[0]
+    assert not looks_like_map(str(dash), "Before you continue to Google", "maps")[0]
+    assert not looks_like_map(str(dash), "", "maps")[0]
