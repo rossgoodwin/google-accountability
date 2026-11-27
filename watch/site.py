@@ -191,6 +191,8 @@ h2 {{ font-size:1.6rem; margin:0; }}
 h3 {{ font-size:1.2rem; margin:0 0 10px; }}
 p {{ margin:0 0 14px; }}
 a {{ color:var(--accent); }}
+.subtitle {{ font-size:1rem; max-width:70ch; margin:0 0 4px; }}
+.subtitle a {{ white-space:nowrap; }}
 .lede {{ font-size:1rem; max-width:68ch; margin-top:36px; }}
 .meters {{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:26px 0 12px; }}
 .meter {{ background:var(--card); border:1px solid var(--line); padding:22px 22px 18px; }}
@@ -231,6 +233,7 @@ footer {{ border-top:1px solid var(--line); margin-top:48px; padding-top:18px; f
 <body>
 <main>
 <h1>Google Accountability</h1>
+<p class=subtitle>A bot that checks what Google Maps and Google Earth call the Gulf of Mexico and Lake Ontario in four countries, about every 15 minutes, and keeps a public record of every change. <a href="{config.REPO_URL}">Code and full record on GitHub</a></p>
 
 <div class=meters>
   <div class=meter>
