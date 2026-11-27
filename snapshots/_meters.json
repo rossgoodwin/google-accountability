@@ -1,1 +1,32 @@
-{"explained": 0, "history": [], "restored": 0, "thanks": [], "views": {"explained|gulf": [0.0, "Gulf of America"], "explained|lake": [0.0, "Lake America"], "restored|earth|gulf": [0.0, "Gulf of America"], "restored|earth|lake": [0.0, "Lake America"], "restored|maps|gulf": [0.0, "Gulf of America"], "restored|maps|lake": [0.0, "Lake America"]}}
+{
+ "explained": 0,
+ "history": [],
+ "restored": 0,
+ "thanks": [],
+ "views": {
+  "explained|gulf": [
+   0.0,
+   "Gulf of America"
+  ],
+  "explained|lake": [
+   0.0,
+   "Lake America"
+  ],
+  "restored|earth|gulf": [
+   0.0,
+   "Gulf of America"
+  ],
+  "restored|earth|lake": [
+   0.0,
+   "Lake America"
+  ],
+  "restored|maps|gulf": [
+   0.0,
+   "Gulf of America"
+  ],
+  "restored|maps|lake": [
+   0.0,
+   "Lake America"
+  ]
+ }
+}
