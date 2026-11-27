@@ -143,6 +143,19 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
             sections.append((source, changes))
     save(os.path.join(SNAP, "_pending.json"), pending)
 
+    # Event log for the status page: every reported change, newest last.
+    if sections:
+        events = load(os.path.join(SNAP, "_events.json"), [])
+        for source, cs in sections:
+            for k, o, v in cs:
+                events.append({
+                    "time": now, "source": source, "key": k,
+                    "old": None if o is None else o[:500], "new": (v or "")[:500],
+                    "provenance": bool(o is not None and
+                                       set(provenance_hits(v)) - set(provenance_hits(o))),
+                })
+        save(os.path.join(SNAP, "_events.json"), events[-500:])
+
     # Health: a source that keeps failing means the bot has gone blind there.
     health = load(os.path.join(SNAP, "_health.json"), {})
     blind = []

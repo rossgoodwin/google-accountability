@@ -70,3 +70,8 @@ NOISE_PATTERNS = [
 
 # How many failing runs in a row before a source counts as "blind" and alerts.
 BLIND_AFTER = 4
+
+# Status page (GitHub Pages). The date Google was asked to add a provenance
+# note to the renamed water bodies; the page counts days from it.
+NOTICE_DATE = "2026-11-26"
+REPO_URL = "https://github.com/rossgoodwin/google-accountability"

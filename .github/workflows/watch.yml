@@ -13,6 +13,8 @@ on:
 permissions:
   contents: write
   issues: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: label-watch
@@ -22,6 +24,9 @@ jobs:
   watch:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     env:
       NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
     steps:
@@ -80,3 +85,23 @@ jobs:
           curl -s --data-binary @out/title.txt \
                -H "Click: ${{ github.server_url }}/${{ github.repository }}/issues" \
                "https://ntfy.sh/$NTFY_TOPIC" >/dev/null
+
+      # Status page. Needs Settings > Pages > Source set to "GitHub Actions";
+      # until then these steps fail quietly and the watching carries on.
+      - name: Build status page
+        run: python -m watch.site
+
+      - name: Configure Pages
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+
+      - name: Upload page
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy page
+        id: deploy
+        continue-on-error: true
+        uses: actions/deploy-pages@v4

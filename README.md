@@ -26,6 +26,12 @@ Every snapshot gets committed to `snapshots/`, so the git history works as a dat
 3. Optional, `NTFY_TOPIC` secret: a hard-to-guess topic name. Install the ntfy app and subscribe to that topic for a phone push on each alert. Without it, GitHub's own issue email and mobile notifications do the job.
 4. Run it once by hand (Actions → label-watch → Run workflow) to set the baseline.
 
+## Status page
+
+Every run rebuilds a public page from the snapshots and deploys it to GitHub Pages: rossgoodwin.com/google-accountability. It shows what Google Maps calls each place in each country, what Google Earth labels it, this run's screenshots, the days since Google was asked to add a provenance note (from `NOTICE_DATE` in `watch/config.py`), and every change the bot has reported. It requires **Settings → Pages → Source: GitHub Actions** to be set once. The page builder lives in `watch/site.py`.
+
+The table on the page shows only names Google puts in the page itself. OCR readings of the map stay out of it, since OCR can catch part of a label and miss the rest. They still trigger alerts.
+
 ## What it saw at launch (2026-11-26)
 
 - US: "Gulf of America", "Lake America", on Maps and on Earth
