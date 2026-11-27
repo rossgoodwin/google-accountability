@@ -6,11 +6,11 @@ Watches how Google labels the Gulf of Mexico / "Gulf of America" and Lake Ontari
 
 | Source | How | What a change means |
 |---|---|---|
-| `maps` | Headless Chrome loads Google Maps for each name, reads the place panel's title and text, saves a screenshot | Google changed the name, description or panel text a US visitor sees. A tooltip or provenance note would most likely surface here |
+| `maps` | Headless Chrome loads Google Maps for each name as seen from the US, Canada, Mexico and the UK (the `gl=` parameter), reads the place name and panel text, and OCRs the screenshot for the label drawn on the map | Google changed the name, panel text or map label for that country's view. A tooltip or provenance note would most likely surface here |
 | `places` | Places API (New) text search per region (us, ca, mx, gb). Optional, needs a key | Google's structured name and `editorialSummary` changed for a given country |
 | `earth` | Headless Chrome loads Google Earth's search for each place and reads whatever text it can reach | Best effort. Earth draws labels on the globe as pixels, so only its side-card text gets compared. Screenshots go in the run artifacts |
 | `pages` | Fingerprints Google's two rename blog posts and the Maps help page on borders and names | Google quietly edited its own explanation |
-| `feeds` | Google's blog RSS and a Google News search for the names | A new post or story. Catches a future rename too |
+| `feeds` | Google's blog RSS and a Google News search for the names, items from the last two weeks | A new post or story. Catches a future rename too |
 | `fedreg` | Federal Register API for the names and the Board on Geographic Names | Upstream action. Google follows GNIS, so this often comes first |
 
 The first run of each source records a baseline and stays quiet. After that, a text change gets reported with a diff, and a new feed item or document gets reported as new. When wording such as "renamed", "executive order" or "also known as" first appears in a panel, it gets flagged at the top of the issue.
@@ -26,8 +26,21 @@ Every snapshot gets committed to `snapshots/`, so the git history works as a dat
 3. Optional, `NTFY_TOPIC` secret: a hard-to-guess topic name. Install the ntfy app and subscribe to that topic for a phone push on each alert. Without it, GitHub's own issue email and mobile notifications do the job.
 4. Run it once by hand (Actions → label-watch → Run workflow) to set the baseline.
 
+## What it saw at launch (2026-11-26)
+
+- US: "Gulf of America", "Lake America", on Maps and on Earth
+- Canada: "Lake Ontario", "Gulf of Mexico (Gulf of America)"
+- Mexico: "Gulf of Mexico", "Lake Ontario (Lake America)"
+- UK: both names in each case
+
+The full baseline lives in `snapshots/`.
+
 ## Tuning
 
 If the first few days flag noise from the Maps panel (counts, opening hours, rotating chrome), add a regex to `NOISE_PATTERNS` in `watch/config.py`. Names, regions, feeds and watched pages also live in that file.
+
+Maps sometimes serves automated visitors a cut-down "limited view" panel. Those panels are skipped rather than compared, so the name and the map label get checked every run, and the longer panel text only on runs where Google serves it in full.
+
+To see what the probes actually read, run the workflow by hand with **debug** ticked. Raw OCR text, Earth's page text and small Earth screenshots land in `snapshots/_debug/`. Delete that folder afterwards.
 
 Run the tests with `python -m pytest`.
