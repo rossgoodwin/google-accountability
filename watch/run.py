@@ -14,7 +14,7 @@ import json
 import os
 import sys
 
-from . import config, meters, probes
+from . import config, issues, meters, probes
 
 SNAP = "snapshots"
 OUT = "out"
@@ -68,6 +68,42 @@ def merge(kind, old, new):
     return merged
 
 
+def show(v):
+    return "no label read" if v in (None, "none") else f"\u201c{v}\u201d"
+
+
+def open_possible(source, k, o, v, now):
+    from .site import pretty_key
+    issues.ensure_labels()
+    what = pretty_key(source, k)
+    title = f"Possible change: {what}: {show(o)} \u2192 {show(v)}"
+    run_url = os.environ.get("RUN_URL", "")
+    body = (f"At {now} the bot read {show(v)} where it last confirmed {show(o)}.\n\n"
+            "This reading comes from a screenshot, read by OCR, so it may be a misread. "
+            f"If the old reading comes back, this issue closes itself. If the new one holds "
+            f"for {config.OCR_CONFIRM_RUNS} checks in a row (about an hour), it is confirmed "
+            "and the status page updates."
+            + (f"\n\nRun: {run_url}" if run_url else ""))
+    try:
+        return issues.open_issue(title, body, ["label-watch", "unconfirmed"])
+    except Exception as e:
+        print(f"  could not open issue: {e!r}", file=sys.stderr)
+        return None
+
+
+def log_events(source, changes, now):
+    """Event log for the status page: every confirmed change, newest last."""
+    events = load(os.path.join(SNAP, "_events.json"), [])
+    for k, o, v in changes:
+        events.append({
+            "time": now, "source": source, "key": k,
+            "old": None if o is None else o[:500], "new": (v or "")[:500],
+            "provenance": bool(o is not None and
+                               set(provenance_hits(v)) - set(provenance_hits(o))),
+        })
+    save(os.path.join(SNAP, "_events.json"), events[-500:])
+
+
 def provenance_hits(text):
     t = (text or "").lower()
     return [w for w in config.PROVENANCE_WORDS if w.lower() in t]
@@ -117,9 +153,13 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         except Exception as e:
             errors[name] = repr(e)[:300]
 
-    # Compare and store. OCR readings ("|on_screen") can misread, so a change
-    # there has to show up config.OCR_CONFIRM_RUNS checks in a row first.
-    pending = load(os.path.join(SNAP, "_pending.json"), {})
+    # Compare and store. Readings taken off screenshots ("|on_screen") can
+    # misread, so a departure from the last confirmed reading opens a
+    # "Possible change" issue right away, closes it if the old reading comes
+    # back, and confirms it if the new one holds for OCR_CONFIRM_RUNS checks.
+    # Only confirmed readings reach the snapshots, meters and status page.
+    watching = load(os.path.join(SNAP, "_open.json"), {})
+    confirmed_issues = []
     sections = []
     for source, r in results.items():
         path = os.path.join(SNAP, f"{source}.json")
@@ -127,26 +167,50 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
         records = dict(r["records"])
         changes = []
         for k, o, v in compare(r["kind"], old, records):
+            if not k.endswith("|on_screen"):
+                changes.append((k, o, v))
+                continue
             pk = f"{source}|{k}"
-            if k.endswith("|on_screen"):
-                p = pending.get(pk)
-                if not isinstance(p, dict):   # older format held a bare value
-                    p = {"value": p, "count": 1} if p is not None else None
-                count = p["count"] + 1 if p and p["value"] == v else 1
-                if count < config.OCR_CONFIRM_RUNS:
-                    pending[pk] = {"value": v, "count": count}
-                    records[k] = o      # hold the old reading for now
-                    continue
-            pending.pop(pk, None)
-            changes.append((k, o, v))
-        for k, v in r["records"].items():  # a flicker that settled back clears
-            pk = f"{source}|{k}"
-            if pk in pending and old and old.get(k) == v:
-                pending.pop(pk)
+            if v == "none" and o in (None, "none"):
+                continue
+            records[k] = o              # hold the confirmed reading for now
+            w = watching.get(pk)
+            if w and w["new"] == v:
+                w["count"] += 1
+            elif w:
+                issues.comment(w["issue"], f"Check at {now} now reads {show(v)}.")
+                w.update(new=v, count=1)
+            else:
+                w = watching[pk] = {"old": o, "new": v, "count": 1, "since": now,
+                                    "issue": open_possible(source, k, o, v, now)}
+            if w["count"] >= config.OCR_CONFIRM_RUNS:
+                issues.comment(w["issue"], f"Confirmed: {show(v)} held for "
+                               f"{w['count']} checks in a row, since {w['since']}. "
+                               "The status page now shows it.")
+                issues.relabel(w["issue"], ["label-watch", "confirmed"])
+                confirmed_issues.append(w["issue"])
+                watching.pop(pk)
+                records[k] = v
+                changes.append((k, o, v))
+        # A reading that came back to the confirmed value closes its issue.
+        for pk in [p for p in watching if p.startswith(source + "|")]:
+            k = pk[len(source) + 1:]
+            if k in r["records"] and old and r["records"][k] == old.get(k):
+                w = watching.pop(pk)
+                issues.comment(w["issue"], f"Back to {show(old.get(k))} at {now}, after "
+                               f"{w['count']} check(s). Most likely a misread, so this "
+                               "is closed and the status page never changed.")
+                issues.relabel(w["issue"], ["label-watch", "reverted"])
+                issues.close(w["issue"], "not_planned")
         save(path, merge(r["kind"], old, records))
+        # Screenshot changes have their own issues; keep them out of the
+        # end-of-run report but in the page log and meters.
+        report_changes = [c for c in changes if not c[0].endswith("|on_screen")]
         if changes:
-            sections.append((source, changes))
-    save(os.path.join(SNAP, "_pending.json"), pending)
+            log_events(source, changes, now)
+        if report_changes:
+            sections.append((source, report_changes))
+    save(os.path.join(SNAP, "_open.json"), watching)
 
     # Meters for the top of the status page, and a dated thank-you line for
     # every view that improved.
@@ -173,18 +237,7 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
                    "restored": restored, "explained": explained})
     save(os.path.join(SNAP, "_meters.json"), mstate)
 
-    # Event log for the status page: every reported change, newest last.
-    if sections:
-        events = load(os.path.join(SNAP, "_events.json"), [])
-        for source, cs in sections:
-            for k, o, v in cs:
-                events.append({
-                    "time": now, "source": source, "key": k,
-                    "old": None if o is None else o[:500], "new": (v or "")[:500],
-                    "provenance": bool(o is not None and
-                                       set(provenance_hits(v)) - set(provenance_hits(o))),
-                })
-        save(os.path.join(SNAP, "_events.json"), events[-500:])
+
 
     # Health: a source that keeps failing means the bot has gone blind there.
     health = load(os.path.join(SNAP, "_health.json"), {})
@@ -201,6 +254,12 @@ def run(only=None, shots_dir=os.path.join(OUT, "screens")):
     # Report.
     os.makedirs(OUT, exist_ok=True)
     report_path = os.path.join(OUT, "report.md")
+    # A meter moved only by a confirmed screenshot change goes on that
+    # change's own issue instead of opening another.
+    if meter_note and not sections and not blind and confirmed_issues:
+        for n in confirmed_issues:
+            issues.comment(n, meter_note.strip())
+        meter_note = ""
     changed = bool(sections or blind or meter_note)
     if changed:
         order = ["maps", "places", "earth", "pages", "fedreg", "feeds"]

@@ -45,6 +45,16 @@ The top of the status page shows two numbers, both computed in `watch/meters.py`
 
 When a view improves, a dated thank-you line goes on the page and stays there (`snapshots/_meters.json`). Alerts are titled "Change detected", and when a change moves a meter, the alert leads with the new numbers.
 
+## Possible changes
+
+Labels read off screenshots, meaning the map image and the Earth globe, can misread. So a reading that differs from the last confirmed one, including a label that disappears, follows its own path:
+
+1. The bot opens an issue right away, titled "Possible change: …" and labeled `unconfirmed`.
+2. If the old reading comes back, the bot comments, relabels the issue `reverted` and closes it. The status page never changes.
+3. If the new reading holds for four checks in a row (`OCR_CONFIRM_RUNS`, about an hour), the bot comments, relabels the issue `confirmed` and leaves it open. Only then does the reading reach the snapshots, the meters, the thank-you lines and the page.
+
+Views that never show a readable label stay quiet. Open possible changes are tracked in `snapshots/_open.json`. Names Google serves as page text, such as the Maps place name, alert at once with no waiting.
+
 ## Status page
 
 Every run rebuilds a public page from the snapshots and deploys it to GitHub Pages: rossgoodwin.com/google-accountability. It shows what Google Maps calls each place in each country, what Google Earth labels it, this run's screenshots, the days since Google was asked to add a provenance note (from `NOTICE_DATE` in `watch/config.py`), and every change the bot has reported. It requires **Settings → Pages → Source: GitHub Actions** to be set once. The page builder lives in `watch/site.py`.

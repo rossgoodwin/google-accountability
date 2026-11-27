@@ -73,46 +73,54 @@ def test_goes_blind_once(fake):
     assert json.load(open("snapshots/_health.json")) == {}
 
 
-def test_ocr_needs_two_runs(fake):
+@pytest.fixture
+def gh(monkeypatch):
+    from watch import issues
+    calls = []
+    n = iter(range(100, 200))
+    monkeypatch.setattr(issues, "ensure_labels", lambda: None)
+    monkeypatch.setattr(issues, "open_issue", lambda t, b, l: calls.append(("open", t, l)) or next(n))
+    monkeypatch.setattr(issues, "comment", lambda num, b: calls.append(("comment", num, b)))
+    monkeypatch.setattr(issues, "relabel", lambda num, l: calls.append(("relabel", num, l)))
+    monkeypatch.setattr(issues, "close", lambda num, reason="completed": calls.append(("close", num, reason)))
+    return calls
+
+
+def test_misread_opens_then_closes_itself(fake, gh):
     run.run()
-    fake["ocr"] = "none"          # one-off misread
-    assert run.run() is False
-    fake["ocr"] = "Lake America"  # back to normal: nothing pending
-    assert run.run() is False
-    assert json.load(open("snapshots/_pending.json")) == {}
-    fake["ocr"] = "Lake Ontario (Lake America)"   # real change
-    assert [run.run() for _ in range(3)] == [False, False, False]   # held
-    assert run.run() is True                       # confirmed on the 4th check
-    assert "Lake Ontario (Lake America)" in open("out/report.md").read()
-    assert run.run() is False
-
-
-def test_meters_and_thanks(fake, monkeypatch):
-    from watch import meters
-    state = {"name": "Lake America"}
-    real_views = meters.views
-    monkeypatch.setattr(meters, "views", lambda m, e: {
-        "restored|maps|lake": (meters._score_names(state["name"], "lake"), state["name"]),
-        "restored|earth|lake": (0.0, ""), "restored|maps|gulf": (0.0, ""),
-        "restored|earth|gulf": (0.0, ""), "explained|lake": (0.0, ""), "explained|gulf": (0.0, "")})
+    fake["ocr"] = "none"                       # label vanishes from the screenshot
     run.run()
-    assert json.load(open("snapshots/_meters.json"))["restored"] == 0
-    assert run.run() is False
-    state["name"] = "Lake America (Lake Ontario)"
-    assert run.run() is True
-    m = json.load(open("snapshots/_meters.json"))
-    assert m["restored"] == 13 and len(m["thanks"]) == 1 and "Thank you." in m["thanks"][0]
-    assert open("out/title.txt").read().startswith("Names restored 13%")
-    assert "0% \u2192 13%" in open("out/report.md").read()
-    assert run.run() is False
-
-
-def test_two_misreads_do_not_count(fake):
+    assert gh[0][0] == "open" and gh[0][1].startswith("Possible change:")
+    assert "no label read" in gh[0][1] and gh[0][2] == ["label-watch", "unconfirmed"]
+    run.run()                                  # still blank: same issue, no new one
+    assert sum(c[0] == "open" for c in gh) == 1
+    fake["ocr"] = "Lake America"               # back: closes itself
     run.run()
-    fake["ocr"] = "Gulf of America, misread"
-    assert [run.run() for _ in range(2)] == [False, False]
-    fake["ocr"] = "Lake America"                   # back to the real reading
-    assert run.run() is False
-    assert json.load(open("snapshots/_pending.json")) == {}
+    assert ("close", 100, "not_planned") in gh
+    assert ("relabel", 100, ["label-watch", "reverted"]) in gh
+    assert json.load(open("snapshots/_open.json")) == {}
     import os
-    assert not os.path.exists("snapshots/_events.json")   # nothing reached the page log
+    assert not os.path.exists("snapshots/_events.json")   # page never changed
+    m = json.load(open("snapshots/maps.json"))
+    assert m["lake|Lake Ontario|gl=us|on_screen"] == "Lake America"
+
+
+def test_real_change_confirms_after_an_hour(fake, gh):
+    run.run()
+    fake["ocr"] = "Lake Ontario (Lake America)"
+    for _ in range(3):
+        run.run()
+    assert json.load(open("snapshots/maps.json"))["lake|Lake Ontario|gl=us|on_screen"] == "Lake America"
+    run.run()                                   # 4th check in a row: confirmed
+    assert ("relabel", 100, ["label-watch", "confirmed"]) in gh
+    assert not any(c[0] == "close" for c in gh)
+    assert json.load(open("snapshots/maps.json"))["lake|Lake Ontario|gl=us|on_screen"] == "Lake Ontario (Lake America)"
+    ev = json.load(open("snapshots/_events.json"))
+    assert ev[-1]["new"] == "Lake Ontario (Lake America)"
+
+
+def test_blank_view_that_was_always_blank_stays_quiet(fake, gh):
+    fake["ocr"] = "none"
+    run.run()
+    run.run()
+    assert gh == []
