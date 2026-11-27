@@ -24,6 +24,8 @@ h2 { font-size:1.6rem; margin:0; }
 h3 { font-size:1.2rem; margin:0 0 10px; }
 p { margin:0 0 14px; }
 a { color:var(--accent); }
+.subtitle { font-size:1rem; max-width:70ch; margin:0 0 4px; }
+.subtitle a { white-space:nowrap; }
 .lede { font-size:1rem; max-width:68ch; margin-top:36px; }
 .meters { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:26px 0 12px; }
 .meter { background:var(--card); border:1px solid var(--line); padding:22px 22px 18px; }
@@ -64,6 +66,7 @@ footer { border-top:1px solid var(--line); margin-top:48px; padding-top:18px; fo
 <body>
 <main>
 <h1>Google Accountability</h1>
+<p class=subtitle>An open-source bot that checks what Google Maps and Google Earth call the Gulf of Mexico and Lake Ontario in four countries, about every 15 minutes, and keeps a public record of every change. <a href="https://github.com/rossgoodwin/google-accountability">Code and full record on GitHub</a></p>
 
 <div class=meters>
   <div class=meter>
@@ -98,7 +101,7 @@ footer { border-top:1px solid var(--line); margin-top:48px; padding-top:18px; fo
     <thead><tr><th>Seen from</th><th>Google Maps calls it</th></tr></thead>
     <tbody><tr><th scope=row>United States</th><td>Gulf of America</td></tr><tr><th scope=row>Canada</th><td>Gulf of Mexico (Gulf of America)</td></tr><tr><th scope=row>Mexico</th><td>Gulf of Mexico</td></tr><tr><th scope=row>Elsewhere (checked from the UK)</th><td>Gulf of Mexico (Gulf of America)</td></tr></tbody>
   </table>
-  <p>Google Earth, viewed from the United States, labels it <strong>Gulf of America</strong>.</p>
+  <p class=dim>Google Earth: label not read this run.</p>
   <div class=pics></div>
 </section>
 <section>
@@ -114,12 +117,12 @@ footer { border-top:1px solid var(--line); margin-top:48px; padding-top:18px; fo
 
 <section>
   <h3>Changes</h3>
-  <p class=dim>No changes recorded yet. Watching began on 26 November 2026.</p>
+  <ul class=changes><li><time>2026-11-27 19:07 UTC</time> <span class=src>Google Earth</span> Gulf of Mexico, label on the globe: <s>Gulf of America</s> → none</li></ul>
 </section>
 
 <footer>
-  <p>Last checked 27 November 2026, 19:01 UTC. All sources answered on the last check.</p>
-  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="https://github.com/rossgoodwin/google-accountability">the repository</a>, whose history is the full record.</p>
+  <p>Last checked 27 November 2026, 19:16 UTC. All sources answered on the last check.</p>
+  <p>Sources: Google Maps from four countries, Google Earth, Google's own blog and help pages, Google News and the Federal Register. Google Earth draws its labels as pictures, so they are read from screenshots by OCR. Every check is committed to <a href="https://github.com/rossgoodwin/google-accountability">the repository</a>, whose history is the full record. The code is open source under the <a href="https://github.com/rossgoodwin/google-accountability/blob/main/LICENSE">MIT License</a>.</p>
 </footer>
 </main>
 </body>
