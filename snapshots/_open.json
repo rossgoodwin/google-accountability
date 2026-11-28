@@ -1,1 +1,9 @@
-{}
+{
+ "maps|lake|Lake America|gl=ca|on_screen": {
+  "count": 1,
+  "issue": 10,
+  "new": "none",
+  "old": "Lake Ontario",
+  "since": "2026-11-28 01:38 UTC"
+ }
+}
