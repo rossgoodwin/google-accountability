@@ -1,9 +1,23 @@
 {
- "maps|lake|Lake America|gl=ca|on_screen": {
+ "earth|lake|Lake America|on_screen": {
   "count": 1,
-  "issue": 18,
+  "issue": 21,
   "new": "none",
-  "old": "Lake Ontario",
-  "since": "2026-11-28 08:53 UTC"
+  "old": "Lake America",
+  "since": "2026-11-28 09:08 UTC"
+ },
+ "maps|lake|Lake Ontario|gl=ca|on_screen": {
+  "count": 1,
+  "issue": 20,
+  "new": "Lake Ontario",
+  "old": "none",
+  "since": "2026-11-28 09:08 UTC"
+ },
+ "maps|lake|Lake Ontario|gl=us|on_screen": {
+  "count": 1,
+  "issue": 19,
+  "new": "Lake America",
+  "old": "none",
+  "since": "2026-11-28 09:08 UTC"
  }
 }
