@@ -1,1 +1,16 @@
-{}
+{
+ "maps|lake|Lake Ontario|gl=ca|on_screen": {
+  "count": 1,
+  "issue": 27,
+  "new": "Lake Ontario",
+  "old": "none",
+  "since": "2026-11-28 16:09 UTC"
+ },
+ "maps|lake|Lake Ontario|gl=us|on_screen": {
+  "count": 1,
+  "issue": 26,
+  "new": "Lake America",
+  "old": "none",
+  "since": "2026-11-28 16:09 UTC"
+ }
+}
